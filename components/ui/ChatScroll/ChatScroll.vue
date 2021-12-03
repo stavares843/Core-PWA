@@ -100,14 +100,13 @@ export default Vue.extend({
     onScrolled() {
       if (!this.$el) return
 
-      if (
-        Math.abs(this.$el.scrollTop) > this.preventScrollOffset &&
-        !this.$store.state.ui.isScrollOver
-      ) {
-        this.$store.dispatch('ui/setIsScrollOver', true)
+      if (Math.abs(this.$el.scrollTop) > this.preventScrollOffset) {
+        if (!this.$store.state.ui.isScrollOver)
+          this.$store.dispatch('ui/setIsScrollOver', true)
         return
       }
 
+      // TODO : under this.preventScrollOffset the scroll is considered done even if the new messages are not visible, must adjust this threshold
       if (this.$store.state.ui.isScrollOver) {
         this.$store.dispatch('ui/setIsScrollOver', false)
       }
