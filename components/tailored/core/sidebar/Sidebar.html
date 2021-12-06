@@ -74,12 +74,16 @@
         <plus-circle-icon size="1x" />
       </div>
     </div>
+    
     <TailoredFriendsQuick v-click-outside="toggleModal" />
+    
     <div
       class="scrolling hidden-scroll users"
       v-scroll-lock="true"
       v-if="ui.showSidebarUsers"
     >
+    
+    <UiNewMessagesNotification v-if="textile.conversations"/>
       <UiScroll verticalScroll scrollbarVisibility="scroll" enableWrap>
         <div v-if="dataState.friends !== DataStateType.Loading && users.length">
           <UiInlineNotification text="New Messages" v-if="ui.unreadMessage.length" />
@@ -107,8 +111,9 @@
         <UiLoadersAddress v-else :count="4" inverted />
       </UiScroll>
     </div>
-    <div class="scrolling hidden-scroll" v-scroll-lock="true" v-else>
+    <div class="scrolling hidden-scroll users" v-scroll-lock="true" v-else>
       <UiScroll verticalScroll scrollbarVisibility="scroll" enableWrap>
+        <UiNewMessagesNotification v-if="textile.conversations"/>
         <div v-if="dataState.friends !== DataStateType.Loading">
           <TailoredCoreGroup
             v-for="group in groups"

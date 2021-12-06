@@ -44,7 +44,7 @@ export default Vue.extend({
   },
   computed: {
     DataStateType: () => DataStateType,
-    ...mapState(['ui', 'dataState', 'media', 'friends']),
+    ...mapState(['ui', 'dataState', 'media', 'friends', 'textile']),
     toggleView: {
       get() {
         return this.ui.showSidebarUsers
