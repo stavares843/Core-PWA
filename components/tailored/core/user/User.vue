@@ -2,6 +2,7 @@
 
 <script lang="ts">
 import Vue, { PropType } from 'vue'
+import { mapState } from 'vuex'
 
 import { SmartphoneIcon, CircleIcon } from 'satellite-lucide-icons'
 
@@ -38,11 +39,22 @@ export default Vue.extend({
         { text: 'Video Call', func: this.testFunc },
         { text: 'Remove Friend', func: this.testFunc },
       ],
+      lastInboundTime: '',
     }
   },
+  computed: {
+    ...mapState(['textile'])
+  },
+  mounted() {
+      this.getLastMessageTime();
+    },
   methods: {
-    testFunc() {
-      console.log('User Func')
+    getLastMessageTime() {
+      Object.keys(this.textile.conversations).forEach( key  => {
+        if (key === this.user.address) {
+          this.lastInboundTime = this.textile.conversations[key].lastInbound.toString()
+        }
+      });
     },
     /**
      * @method navigateToUser

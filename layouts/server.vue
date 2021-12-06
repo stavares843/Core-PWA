@@ -12,7 +12,7 @@
       <UiGlobal />
       <TailoredCoreSlimbar
         :servers="$mock.servers"
-        :unreads="$mock.unreads"
+        :unreads="unreadMessages"
         :open-modal="toggleModal"
       />
       <TailoredServersSidebar
@@ -65,10 +65,24 @@ export default Vue.extend({
   data() {
     return {
       sidebar: true,
+      unreadMessages: [{}],
     }
   },
   computed: {
     ...mapState(['ui', 'media']),
+  },
+  methods: {
+    checkUnreadMessages() {
+      let unreadMessageList = [{}]
+      Object.keys(this.textile.conversations).forEach((conversation) => {
+        if (conversation.unreadCount !== 0) {
+          unreadMessageList.push(conversation)
+        }
+      })
+      this.unreadMessages = unreadMessageList.sort((timeRecived: MessagesTracker, nextTime: MessagesTracker) => {
+        return timeRecived.lastMsg.at - nextTime.lastMsg.at
+      })
+    },
   },
 })
 </script>

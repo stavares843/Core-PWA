@@ -18,7 +18,7 @@
       <UiGlobal />
       <TailoredCoreSlimbar
         :servers="$mock.servers"
-        :unreads="$mock.unreads"
+        :unreads="unreadMessages"
         :open-modal="toggleModal"
       />
       <TailoredCoreSidebar
@@ -87,11 +87,12 @@ export default Vue.extend({
   data() {
     return {
       sidebar: true,
-      asidebar: !this.$device.isMobile
+      asidebar: !this.$device.isMobile,
+      unreadMessages: [{}],
     }
   },
   computed: {
-    ...mapState(['audio', 'ui', 'media', 'friends']),
+    ...mapState(['audio', 'ui', 'media', 'friends', 'textile']),
     selectedGroup() {
       return this.$route.params.id // TODO: change with groupid
     },
@@ -108,6 +109,19 @@ export default Vue.extend({
           )
       return recipient
     }
+  },
+  methods: {
+    checkUnreadMessages() {
+      let unreadMessageList = [{}]
+      Object.keys(this.textile.conversations).forEach((conversation) => {
+        if (conversation.unreadCount !== 0) {
+          unreadMessageList.push(conversation)
+        }
+      })
+      this.unreadMessages = unreadMessageList.sort((timeRecived: MessagesTracker, nextTime: MessagesTracker) => {
+        return timeRecived.lastMsg.at - nextTime.lastMsg.at
+      })
+    },
   },
   mounted() {
     this.$store.dispatch('ui/activateKeybinds')

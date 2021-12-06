@@ -10,13 +10,13 @@
       <div id="list-container">
         <UiHorizontalRule v-if="unreads.length > 0" />
 
-        <div class="unread has-tooltip-right has-tooltip-primary" v-for="user in unreads"
+        <div v-if="unreads.length > 0"  class="unread has-tooltip-right has-tooltip-primary" v-for="user in unreads"
           v-on:click="$router.push('/chat/direct')" :data-tooltip="user.name">
           <UiCircle type="random" :size="40" :seed="user.address" />
           <span class="label">{{user.count}}</span>
         </div>
 
-        <UiHorizontalRule v-if="unreads.length > 0" />
+        <UiHorizontalRule v-if="unreads.length >= 1" />
         <div class="server has-tooltip-right has-tooltip-primary" v-for="server in servers"
           v-on:click="$router.push('/server/chat')" :data-tooltip="server.name">
           <UiCircle type="random" :size="40" :seed="server.address" :name="server.name" />
