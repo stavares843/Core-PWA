@@ -1,5 +1,5 @@
 <div id="glyphs">
-  <div class="search-glyph-box">
+  <!-- <div class="search-glyph-box">
     <InteractablesInput
       :placeholder="$t('ui.search')"
       size="small"
@@ -16,9 +16,17 @@
       :data-key="'id'"
       :data-sources="filteredGlyphs"
       :data-component="packGroup"
-      :keeps="15"
+      :keeps="5"
+      :estimate-size="80"
     />
   </div>
 
-  <EnhancersGlyphsItemInfo />
+  <EnhancersGlyphsItemInfo /> -->
+  <virtual-list class="glyph-content hidden-scroll"
+    :data-key="'id'"
+    :data-sources="filteredGlyphs"
+    :data-component="packGroup"
+    :estimate-size="80"
+    :keeps="10"
+  />
 </div>

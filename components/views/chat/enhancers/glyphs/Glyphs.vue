@@ -3,6 +3,7 @@
 import Vue from 'vue'
 import VirtualList from 'vue-virtual-scroll-list'
 import PackGroup from './pack/PackGroup.vue'
+import { GlyphPackInfo } from '~/types/glyphs'
 
 export default Vue.extend({
   components: { VirtualList },
@@ -14,6 +15,9 @@ export default Vue.extend({
       packGroup: PackGroup,
     }
   },
+  mounted() {
+    console.log('filteredGlyphs', this.filteredGlyphs)
+  },
   watch: {
     searchText() {
       this.filter(this.searchText)
@@ -23,7 +27,7 @@ export default Vue.extend({
     filter(filterValue: any) {
       this.filteredGlyphs = Object.values(this.$mock.glyphs).filter(
         (pack) =>
-          pack.name.toLowerCase().indexOf(filterValue.toLowerCase()) !== -1,
+          (pack as GlyphPackInfo).name.toLowerCase().indexOf(filterValue.toLowerCase()) !== -1,
       )
     },
   },
