@@ -1,4 +1,4 @@
-<template src='./Upload.html'></template>
+<template src="./Upload.html"></template>
 
 <script lang="ts">
 import { FilePlusIcon, PlusIcon, XIcon } from 'satellite-lucide-icons'
@@ -51,7 +51,7 @@ export default Vue.extend({
       aiScanning: false,
       fileAmount: 0,
       containsNsfw: false,
-      alertNsfw: false
+      alertNsfw: false,
     }
   },
   computed: {
@@ -118,7 +118,7 @@ export default Vue.extend({
     loadPicture(item: UploadDropItemType) {
       if (!item.file) return
       const reader = new FileReader()
-      reader.onload = function(e: Event | any) {
+      reader.onload = function (e: Event | any) {
         if (e.target) item.url = e.target.result
       }
       reader.readAsDataURL(item.file)
@@ -166,7 +166,6 @@ export default Vue.extend({
           document.body.style.cursor = PropCommonEnum.DEFAULT
           this.$store.dispatch('textile/clearUploadStatus')
         }
-
       }
     },
     alertNsfwFile() {
@@ -184,12 +183,14 @@ export default Vue.extend({
      * @description Sends a singular file to textile.
      */
     async dispatchFile(file: FileType) {
-      await this.$store.dispatch('textile/sendFileMessage', {
-        to: this.recipient.textilePubkey,
-        file: file,
-      }).then(() => {
-        this.finishUploads()
-      })
+      await this.$store
+        .dispatch('textile/sendFileMessage', {
+          to: this.recipient.textilePubkey,
+          file,
+        })
+        .then(() => {
+          this.finishUploads()
+        })
         .catch((error) => {
           if (error) {
             new Error(error)
@@ -203,6 +204,8 @@ export default Vue.extend({
      * @description Sends action to Upload the file to textile.
      */
     async sendMessage() {
+      this.disabledButton = true
+
       const nsfwCheck = this.$data.files.filter((file: UploadDropItemType) => {
         if (!file.nsfw.status) {
           return file
@@ -218,9 +221,18 @@ export default Vue.extend({
         this.$data.fileAmount = nsfwCheck.length
         this.dispatchFile(file)
       })
+      nsfwCheck.map((file: UploadDropItemType) => {
+        this.fileAmount = nsfwCheck.length
+        this.$store
+          .dispatch('textile/sendFileMessage', {
+            to: this.recipient.textilePubkey,
+            file,
+          })
+          .then(() => this.finishUploads())
+      })
     },
   },
 })
 </script>
 
-<style scoped lang='less' src='./Upload.less'></style>
+<style scoped lang="less" src="./Upload.less"></style>
