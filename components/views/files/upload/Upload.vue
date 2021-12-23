@@ -199,6 +199,7 @@ export default Vue.extend({
             new Error(error)
             document.body.style.cursor = PropCommonEnum.DEFAULT
             this.$store.dispatch('textile/clearUploadStatus')
+            this.disabledButton = false
           }
         })
     },
