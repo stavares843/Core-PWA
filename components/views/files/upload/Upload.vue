@@ -2,13 +2,14 @@
 
 <script lang="ts">
 import Vue, { PropType } from 'vue'
-import { Config } from '~/config'
 import { FilePlusIcon, PlusIcon, XIcon } from 'satellite-lucide-icons'
 import { mapState } from 'vuex'
+import { Promise } from 'es6-promise'
+import { Config } from '~/config'
+
+import { FileType, UploadDropItemType } from '~/types/files/file'
 import { Friend } from '~/types/ui/friends'
 import { PropCommonEnum } from '~/libraries/Enums/types/prop-common-events'
-import { UploadDropItemType, FileType } from '~/types/files/file'
-import { Promise } from 'es6-promise'
 
 declare module 'vue/types/vue' {
   interface Vue {
@@ -119,7 +120,7 @@ export default Vue.extend({
     loadPicture(item: UploadDropItemType) {
       if (!item.file) return
       const reader = new FileReader()
-      reader.onload = function(e: Event | any) {
+      reader.onload = function (e: Event | any) {
         if (e.target) item.url = e.target.result
       }
       reader.readAsDataURL(item.file)
@@ -156,8 +157,6 @@ export default Vue.extend({
      * @description Keeps track of how many files have been uploaded
      */
     finishUploads() {
-      this.fileAmount--
-      if (this.fileAmount === 0) {
       this.$data.fileAmount--
       if (this.$data.fileAmount === 0) {
         if (this.$data.containsNsfw) {
@@ -199,7 +198,7 @@ export default Vue.extend({
             new Error(error)
             document.body.style.cursor = PropCommonEnum.DEFAULT
             this.$store.dispatch('textile/clearUploadStatus')
-            this.disabledButton = false
+            this.$data.disabledButton = false
           }
         })
     },
@@ -208,7 +207,7 @@ export default Vue.extend({
      * @description Sends action to Upload the file to textile.
      */
     async sendMessage() {
-      this.disabledButton = true
+      this.$data.disabledButton = true
       const nsfwCheck = this.$data.files.filter((file: UploadDropItemType) => {
         if (!file.nsfw.status) {
           return file
