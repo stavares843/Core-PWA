@@ -4,7 +4,7 @@ import { ActionsArguments } from '~/types/store/store'
 import TextileManager from '~/libraries/Textile/TextileManager'
 import { TextileConfig } from '~/types/textile/manager'
 import { MailboxManager } from '~/libraries/Textile/MailboxManager'
-import {MessageRouteEnum, PropCommonEnum} from '~/libraries/Enums/enums'
+import { MessageRouteEnum, PropCommonEnum } from '~/libraries/Enums/enums'
 import { Config } from '~/config'
 import { MailboxSubscriptionType, Message } from '~/types/textile/mailbox'
 import { UploadDropItemType } from '~/types/files/file'
@@ -86,9 +86,9 @@ export default {
    * @param param0 Action Arguments
    */
   async subscribeToMailbox({
-    commit,
-    rootState,
-  }: ActionsArguments<TextileState>) {
+                             commit,
+                             rootState,
+                           }: ActionsArguments<TextileState>) {
     const $TextileManager: TextileManager = Vue.prototype.$TextileManager
     const MailboxManager = $TextileManager.mailboxManager
 
@@ -195,7 +195,7 @@ export default {
     { commit, rootState }: ActionsArguments<TextileState>,
     { to, file }: { to: string; file: UploadDropItemType },
   ) {
-    document.body.style.cursor= PropCommonEnum.WAIT
+    document.body.style.cursor = PropCommonEnum.WAIT
     const $TextileManager: TextileManager = Vue.prototype.$TextileManager
     const path = `/${file.file.name}`
     $TextileManager.bucketManager?.getBucket()
@@ -203,7 +203,7 @@ export default {
       file.file,
       path,
       (progress: number) => {
-        commit('setUploadingFileProgress', {progress: progress, name: file.file.name,})
+        commit('setUploadingFileProgress', { progress: progress, name: file.file.name })
       },
     )
     const fileURL = `${Config.textile.browser}${result?.root}${path}`
@@ -212,27 +212,44 @@ export default {
     if (!friend) {
       throw new Error('Friend not found')
     }
-      const sendFileResult =
-        await $TextileManager.mailboxManager?.sendMessage<'file'>(
-          friend.textilePubkey,
-          {
-            to: friend.textilePubkey,
-            payload: {
-              url: fileURL,
-              name: file.file.name,
-              size: file.file.size,
-              type: file.file.type,
-            },
-            type: 'file',
+    const sendFileResult =
+      await $TextileManager.mailboxManager?.sendMessage<'file'>(
+        friend.textilePubkey,
+        {
+          to: friend.textilePubkey,
+          payload: {
+            url: fileURL,
+            name: file.file.name,
+            size: file.file.size,
+            type: file.file.type,
           },
-        )
+          type: 'file',
+        },
+      )
 
-      commit('addMessageToConversation', {
-        address: friend.address,
-        sender: MessageRouteEnum.OUTBOUND,
-        message: sendFileResult,
-      })
+    commit('addMessageToConversation', {
+      address: friend.address,
+      sender: MessageRouteEnum.OUTBOUND,
+      message: sendFileResult,
+    })
   },
+  async pullFile(
+    { commit, rootState }: ActionsArguments<TextileState>,
+    { path }: { path: string }) {
+    document.body.style.cursor = PropCommonEnum.WAIT
+    const $TextileManager: TextileManager = Vue.prototype.$TextileManager
+    $TextileManager.bucketManager?.getBucket()
+    const textilePublicKey = $TextileManager.getIdentityPublicKey()
+    const display = (num?: number) => {
+      console.log('Progress:', num)
+    }
+    await $TextileManager.bucketManager?.pullFile(
+      textilePublicKey,
+      path,
+      { progress: display },
+    )
+  }
+  ,
   /**
    * @description Sends a reaction message to a given friend
    * @param param0 Action Arguments

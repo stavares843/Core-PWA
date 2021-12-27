@@ -178,6 +178,19 @@ export default class BucketManager {
     });
   }
 
+  async pullFile (key: string | null, path: string,
+                  options?: {
+    progress?: (num?: number) => void;
+  }) : Promise<PushPathResult>{
+    return new Promise((resolve, reject) => {
+      if (!this.buckets || !this.bucketKey) {
+        reject(new Error('Please init first'));
+        return;
+      }
+      return this.buckets.pullPath(key, path, options)
+    })
+  }
+
   async getBucket() : Promise<Root | undefined>{
     if (!this.buckets) return undefined;
     const roots = await this.buckets.list();
