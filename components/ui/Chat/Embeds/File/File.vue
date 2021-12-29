@@ -2,8 +2,8 @@
 <script lang="ts">
 import Vue, { PropType } from 'vue'
 import { DownloadIcon, FileIcon } from 'satellite-lucide-icons'
-import {TextileImage} from "~/types/textile/manager";
 import {FileMessage} from "~/types/textile/mailbox";
+import { PropCommonEnum } from '~/libraries/Enums/types/prop-common-events'
 
 export default Vue.extend({
   components: {
@@ -22,7 +22,7 @@ export default Vue.extend({
     }
   },
   computed: {
-    getFileSize(some) {
+    getFileSize() {
     return this.bytesToSize(this.file.size)
     },
   },
@@ -39,10 +39,6 @@ export default Vue.extend({
       const i = parseInt(Math.floor(Math.log(bytes) / Math.log(1024)))
       return `${Math.round(bytes / Math.pow(1024, i), 2)} ${sizes[i]}`
     },
-    downloadFile (fileUrl: string) {
-      console.log(fileUrl)
-      this.$store.dispatch('textile/pullFile', fileUrl)
-    }
   }
 })
 </script>

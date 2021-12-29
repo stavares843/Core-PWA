@@ -2,12 +2,14 @@
   <file-icon size="1x" class="file-icon" v-if="!file.type.includes('image')" />
   <UiChatImage
     v-if="file.type.includes('image')"
-    :image="file"
-    :alt="file.name"
+    :image='file'
+    :alt='file.name'
   />
-  <div class="file-info" v-if="!file.type.includes('image')">
-    <TypographySubtitle :size="6" :text="`${file.name}`" />
-    <TypographyText :text="`${file.type} - ${getFileSize}`" />
+  <div class='file-info' v-if="!file.type.includes('image')">
+    <TypographySubtitle :size='6' :text='`${file.name}`' />
+    <TypographyText :text='`${file.type} - ${getFileSize}`' />
   </div>
-  <download-icon size="1x" class="download" v-if="!file.type.includes('image')" v-on:click="`${downloadFile(file.url)}`" />
+  <a :href='file.url' target='_blank'>
+    <download-icon size='1x' class='download' v-if="!file.type.includes('image')" />
+  </a>
 </div>

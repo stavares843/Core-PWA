@@ -233,23 +233,6 @@ export default {
       message: sendFileResult,
     })
   },
-  async pullFile(
-    { commit, rootState }: ActionsArguments<TextileState>,
-    { path }: { path: string }) {
-    document.body.style.cursor = PropCommonEnum.WAIT
-    const $TextileManager: TextileManager = Vue.prototype.$TextileManager
-    $TextileManager.bucketManager?.getBucket()
-    const textilePublicKey = $TextileManager.getIdentityPublicKey()
-    const display = (num?: number) => {
-      console.log('Progress:', num)
-    }
-    await $TextileManager.bucketManager?.pullFile(
-      textilePublicKey,
-      path,
-      { progress: display },
-    )
-  }
-  ,
   /**
    * @description Sends a reaction message to a given friend
    * @param param0 Action Arguments
