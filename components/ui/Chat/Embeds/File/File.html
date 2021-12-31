@@ -1,5 +1,5 @@
 <div :class="file.type.includes('image') ? 'embeded-image' : 'embeded-file'">
-  <file-icon size="1x" class="file-icon" v-if="!file.type.includes('image')" />
+  <file-icon size="1x" class="icon file-icon is-primary" v-if="!file.type.includes('image')" />
   <UiChatImage
     v-if="file.type.includes('image')"
     :image="file"
@@ -8,8 +8,9 @@
   <div class="file-info" v-if="!file.type.includes('image')">
     <TypographySubtitle :size="6" :text="`${file.name}`" />
     <TypographyText :text="`${file.type} - ${getFileSize}`" />
+
   </div>
-  <a :href='file.url' target='_blank'>
-    <download-icon size='1x' class='download' v-if="!file.type.includes('image')" />
+  <a :href='file.url' target='_blank' class='button is-primary'  v-if="!file.type.includes('image')" >
+    <download-icon size='1x' class=' download control-icon'/>
   </a>
 </div>
