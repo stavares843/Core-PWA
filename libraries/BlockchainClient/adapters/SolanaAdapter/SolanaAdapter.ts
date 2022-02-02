@@ -5,6 +5,7 @@ import {
   Adapter,
   CreateUserParams,
   DenyFriendRequestParams,
+  FriendsEvents,
   RemoveFriendParams,
   RemoveFriendRequestParams,
   SendFriendRequestParams,
@@ -184,7 +185,9 @@ export default class SolanaAdapter implements Adapter {
       )
   }
 
-  async sendFriendRequest(params: SendFriendRequestParams): Promise<boolean> {
+  async sendFriendRequest(
+    params: SendFriendRequestParams,
+  ): Promise<FriendAccount | null> {
     await this.initSolanaManager(params.fromAccount)
 
     const { userAccount } = this.getAccounts()
@@ -245,7 +248,21 @@ export default class SolanaAdapter implements Adapter {
       Buffer.from(params.fromMailboxId.padStart(128, '0')),
     )
 
-    return true
+    return this.getFriendAccount(friendAccountKey.toBase58())
+  }
+
+  addEventListener(
+    type: FriendsEvents,
+    callback: (data?: FriendAccount) => void,
+  ) {
+    this.friendsProgram.addEventListener(type, callback)
+  }
+
+  removeEventListener(
+    type: FriendsEvents,
+    callback: (data?: FriendAccount) => void,
+  ) {
+    this.friendsProgram.removeEventListener(type, callback)
   }
 
   private async initSolanaManager(account: Account) {

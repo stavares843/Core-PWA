@@ -63,6 +63,14 @@ export interface RemoveFriendParams {
   friendAddress: string
 }
 
+export enum FriendsEvents {
+  NEW_REQUEST = 'new_request',
+  NEW_FRIEND = 'new_friend',
+  REQUEST_DENIED = 'request_denied',
+  REQUEST_REMOVED = 'request_removed',
+  FRIEND_REMOVED = 'friend_removed',
+}
+
 export interface Adapter {
   createRandomAccount(): Promise<Account>
   getAccountFromMnemonic(mnemonic: string): Promise<Account | null>
@@ -73,10 +81,21 @@ export interface Adapter {
   getAccountUser(account: Account): Promise<User | null>
   searchUserByName(name: string): Promise<User[]>
 
-  sendFriendRequest(params: SendFriendRequestParams): Promise<boolean>
+  sendFriendRequest(
+    params: SendFriendRequestParams,
+  ): Promise<FriendAccount | null>
   acceptFriendRequest(params: AcceptFriendRequestParams): Promise<boolean>
   denyFriendRequest(params: DenyFriendRequestParams): Promise<boolean>
   removeFriendRequest(params: RemoveFriendRequestParams): Promise<boolean>
   removeFriend(params: RemoveFriendParams): Promise<boolean>
   getFriendAccount(address: string): Promise<FriendAccount | null>
+
+  removeEventListener(
+    type: FriendsEvents,
+    callback: (data?: FriendAccount) => void,
+  ): void
+  addEventListener(
+    type: FriendsEvents,
+    callback: (data?: FriendAccount) => void,
+  ): void
 }

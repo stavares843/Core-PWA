@@ -1,4 +1,4 @@
-import { Account, Adapter, User } from './interfaces'
+import { Account, Adapter, FriendAccount, User } from './interfaces'
 
 export default class BlockchainClient {
   private adapter: Adapter
@@ -99,7 +99,7 @@ export default class BlockchainClient {
   async sendFriendRequest(
     toAddress: string,
     fromMailboxId: string,
-  ): Promise<boolean> {
+  ): Promise<FriendAccount | null> {
     return this.adapter.sendFriendRequest({
       toAddress,
       fromMailboxId,
