@@ -12,6 +12,7 @@ import SolanaManager from '~/libraries/Solana/SolanaManager/SolanaManager'
 
 import { ActionsArguments, RootState } from '~/types/store/store'
 import TextileManager from '~/libraries/Textile/TextileManager'
+import BlockchainClient from '~/libraries/BlockchainClient'
 
 export default {
   /**
@@ -133,7 +134,7 @@ export default {
     dispatch,
   }: ActionsArguments<AccountsState>) {
     const $SolanaManager: SolanaManager = Vue.prototype.$SolanaManager
-
+    const $BlockchainClient: BlockchainClient = Vue.prototype.$BlockchainClient
     const mnemonic = state.phrase
 
     if (mnemonic === '') {
@@ -141,7 +142,7 @@ export default {
     }
 
     await $SolanaManager.initializeFromMnemonic(mnemonic)
-
+    await $BlockchainClient.initFromMnemonic(mnemonic)
     const userAccount = $SolanaManager.getUserAccount()
 
     if (!userAccount) {

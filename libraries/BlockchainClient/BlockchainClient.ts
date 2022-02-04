@@ -1,4 +1,12 @@
-import { Account, Adapter, FriendAccount, User } from './interfaces'
+import {
+  Account,
+  Adapter,
+  FindFriendsFilter,
+  FindFriendsResult,
+  FriendAccount,
+  FriendsEvents,
+  User,
+} from './interfaces'
 
 export default class BlockchainClient {
   private adapter: Adapter
@@ -13,6 +21,10 @@ export default class BlockchainClient {
       throw new Error('Blockchain client is not initialized')
     }
     return this._account
+  }
+
+  get isInitialized(): boolean {
+    return !!this._account
   }
 
   /**
@@ -154,13 +166,46 @@ export default class BlockchainClient {
   /**
    * @method removeFriend
    * Remove friend
-   * @param friendAddress address of friend
+   * @param friendAccountAddress address of friend account
    * @returns {Promise<boolean>}
+   * TODO consider to use friend address instead of friend account address
    */
-  async removeFriend(friendAddress: string): Promise<boolean> {
+  async removeFriend(friendAccountAddress: string): Promise<boolean> {
     return this.adapter.removeFriend({
-      friendAddress,
+      friendAccountAddress,
       account: this.account,
     })
+  }
+
+  /**
+   * Search friend accounts by filter
+   * @param filter {FindFriendsFilter}
+   * @returns {Promise<FindFriendsResult>}
+   */
+  async findFriendAccounts(
+    filter: FindFriendsFilter,
+  ): Promise<FindFriendsResult> {
+    return this.adapter.findFriendAccounts({
+      filter,
+      account: this.account,
+    })
+  }
+
+  subscribeToEvents() {
+    return this.adapter.subscribeToEvents(this.account)
+  }
+
+  addEventListener(
+    type: FriendsEvents,
+    callback: (data?: FriendAccount) => void,
+  ): void {
+    this.adapter.addEventListener(type, callback)
+  }
+
+  removeEventListener(
+    type: FriendsEvents,
+    callback: (data?: FriendAccount) => void,
+  ): void {
+    this.adapter.removeEventListener(type, callback)
   }
 }

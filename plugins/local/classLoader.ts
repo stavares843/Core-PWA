@@ -16,6 +16,8 @@ import Hounddog from '~/utilities/Hounddog'
 import Logger from '~/utilities/Logger'
 import BucketManager from '~/libraries/Textile/BucketManager'
 import Cursor from '~/libraries/ui/Cursor'
+import BlockchainClient from '~/libraries/BlockchainClient'
+import SolanaAdapter from '~/libraries/BlockchainClient/adapters/SolanaAdapter'
 
 declare module 'vue/types/vue' {
   interface Vue {
@@ -31,6 +33,7 @@ declare module 'vue/types/vue' {
     $Hounddog: Hounddog
     $Logger: Logger
     $Alerts: Alerts
+    $BlockchainClient: BlockchainClient
   }
 }
 
@@ -48,6 +51,7 @@ declare module '@nuxt/types' {
     $Hounddog: Hounddog
     $Logger: Logger
     $Alerts: Alerts
+    $BlockchainClient: BlockchainClient
   }
 }
 
@@ -61,6 +65,7 @@ Vue.prototype.$Config = Config
 Vue.prototype.$Hounddog = new Hounddog(Vue.prototype.$store)
 Vue.prototype.$Logger = new Logger(Vue.prototype.$Config.debug)
 Vue.prototype.$Alerts = new Alerts()
+Vue.prototype.$BlockchainClient = new BlockchainClient(new SolanaAdapter())
 
 // Add typed store alias to Vue prototype
 Object.defineProperty(Vue.prototype, '$typedStore', {

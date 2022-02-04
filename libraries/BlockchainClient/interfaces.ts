@@ -60,7 +60,21 @@ export interface DenyFriendRequestParams {
 
 export interface RemoveFriendParams {
   account: Account
-  friendAddress: string
+  friendAccountAddress: string
+}
+
+export interface FindFriendsFilter {
+  status: number
+}
+
+export interface FindFriendsParams {
+  account: Account
+  filter: FindFriendsFilter
+}
+
+export interface FindFriendsResult {
+  incoming: FriendAccount[]
+  outgoing: FriendAccount[]
 }
 
 export enum FriendsEvents {
@@ -89,7 +103,9 @@ export interface Adapter {
   removeFriendRequest(params: RemoveFriendRequestParams): Promise<boolean>
   removeFriend(params: RemoveFriendParams): Promise<boolean>
   getFriendAccount(address: string): Promise<FriendAccount | null>
+  findFriendAccounts(params: FindFriendsParams): Promise<FindFriendsResult>
 
+  subscribeToEvents(account: Account): Promise<void>
   removeEventListener(
     type: FriendsEvents,
     callback: (data?: FriendAccount) => void,

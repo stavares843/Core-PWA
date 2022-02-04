@@ -8,15 +8,11 @@ import {
   FriendsState,
 } from './types'
 import Crypto from '~/libraries/Crypto/Crypto'
-import SolanaManager from '~/libraries/Solana/SolanaManager/SolanaManager'
-import FriendsProgram from '~/libraries/Solana/FriendsProgram/FriendsProgram'
-import ServerProgram from '~/libraries/Solana/ServerProgram/ServerProgram'
 import {
   FriendAccount,
   FriendsEvents,
   FriendStatus,
 } from '~/libraries/Solana/FriendsProgram/FriendsProgram.types'
-import { AccountsError } from '~/store/accounts/types'
 import {
   Friend,
   FriendRequest,
@@ -26,6 +22,7 @@ import {
 import { ActionsArguments } from '~/types/store/store'
 import { RawUser } from '~/types/ui/user'
 import TextileManager from '~/libraries/Textile/TextileManager'
+import BlockchainClient from '~/libraries/BlockchainClient'
 
 export default {
   /**
@@ -35,20 +32,14 @@ export default {
    * @example
    */
   async fetchFriendRequests({ commit }: ActionsArguments<FriendsState>) {
-    const $SolanaManager: SolanaManager = Vue.prototype.$SolanaManager
+    const $BlockchainClient: BlockchainClient = Vue.prototype.$BlockchainClient
 
-    const friendsProgram: FriendsProgram = new FriendsProgram($SolanaManager)
-
-    const serverProgram: ServerProgram = new ServerProgram($SolanaManager)
-
-    const { incoming, outgoing } =
-      await friendsProgram.getFriendAccountsByStatus(FriendStatus.PENDING)
-
+    const { incoming, outgoing } = await $BlockchainClient.findFriendAccounts({
+      status: FriendStatus.ACCEPTED,
+    })
     const incomingRequests = await Promise.all(
       incoming.map(async (account) => {
-        const userInfo = await serverProgram.getUser(
-          new PublicKey(account.from),
-        )
+        const userInfo = await $BlockchainClient.getUser(account.from)
         return friendAccountToIncomingRequest(account, userInfo)
       }),
     )
@@ -72,12 +63,11 @@ export default {
       { key: 'friends', value: DataStateType.Loading },
       { root: true },
     )
-    const $SolanaManager: SolanaManager = Vue.prototype.$SolanaManager
-    const friendsProgram: FriendsProgram = new FriendsProgram($SolanaManager)
+    const $BlockchainClient: BlockchainClient = Vue.prototype.$BlockchainClient
 
-    const { incoming, outgoing } =
-      await friendsProgram.getFriendAccountsByStatus(FriendStatus.ACCEPTED)
-
+    const { incoming, outgoing } = await $BlockchainClient.findFriendAccounts({
+      status: FriendStatus.ACCEPTED,
+    })
     const allFriendsData = [...incoming, ...outgoing]
 
     allFriendsData.forEach((friendData) => {
@@ -105,8 +95,7 @@ export default {
     { commit, state, rootState, dispatch }: ActionsArguments<FriendsState>,
     friendAccount: FriendAccount,
   ) {
-    const $SolanaManager: SolanaManager = Vue.prototype.$SolanaManager
-    const serverProgram: ServerProgram = new ServerProgram($SolanaManager)
+    const $BlockchainClient: BlockchainClient = Vue.prototype.$BlockchainClient
     const $Crypto: Crypto = Vue.prototype.$Crypto
 
     // Check if the request was originally sent by the current user (outgoing)
@@ -125,7 +114,7 @@ export default {
       friendKey,
       encryptedTextilePubkey,
     )
-    const rawUser = await serverProgram.getUser(new PublicKey(friendKey))
+    const rawUser = await $BlockchainClient.getUser(friendKey)
     if (!rawUser) {
       throw new Error(FriendsError.FRIEND_INFO_NOT_FOUND)
     }
@@ -173,27 +162,21 @@ export default {
    * @param
    * @example
    */
-  subscribeToFriendsEvents({
+  async subscribeToFriendsEvents({
     dispatch,
     commit,
   }: ActionsArguments<FriendsState>) {
-    const $SolanaManager: SolanaManager = Vue.prototype.$SolanaManager
+    const $BlockchainClient: BlockchainClient = Vue.prototype.$BlockchainClient
 
-    const friendsProgram: FriendsProgram = new FriendsProgram($SolanaManager)
+    const user = await $BlockchainClient.getCurrentUser()
 
-    const serverProgram: ServerProgram = new ServerProgram($SolanaManager)
+    await $BlockchainClient.subscribeToEvents()
 
-    const userAccount = $SolanaManager.getActiveAccount()
-
-    friendsProgram.subscribeToFriendsEvents()
-
-    friendsProgram.addEventListener(
+    $BlockchainClient.addEventListener(
       FriendsEvents.NEW_REQUEST,
       async (account) => {
         if (account) {
-          const userInfo = await serverProgram.getUser(
-            new PublicKey(account.from),
-          )
+          const userInfo = await $BlockchainClient.getUser(account.from)
           commit(
             'addIncomingRequest',
             friendAccountToIncomingRequest(account, userInfo),
@@ -202,22 +185,25 @@ export default {
       },
     )
 
-    friendsProgram.addEventListener(FriendsEvents.NEW_FRIEND, (account) => {
+    $BlockchainClient.addEventListener(FriendsEvents.NEW_FRIEND, (account) => {
       if (account) {
         dispatch('fetchFriendDetails', account)
       }
     })
 
-    friendsProgram.addEventListener(FriendsEvents.REQUEST_DENIED, (account) => {
-      if (account) {
-        commit(
-          'removeOutgoingRequest',
-          friendAccountToOutgoingRequest(account).requestId,
-        )
-      }
-    })
+    $BlockchainClient.addEventListener(
+      FriendsEvents.REQUEST_DENIED,
+      (account) => {
+        if (account) {
+          commit(
+            'removeOutgoingRequest',
+            friendAccountToOutgoingRequest(account).requestId,
+          )
+        }
+      },
+    )
 
-    friendsProgram.addEventListener(
+    $BlockchainClient.addEventListener(
       FriendsEvents.REQUEST_REMOVED,
       (account) => {
         if (account) {
@@ -229,16 +215,18 @@ export default {
       },
     )
 
-    friendsProgram.addEventListener(FriendsEvents.FRIEND_REMOVED, (account) => {
-      if (account) {
-        commit(
-          'removeFriend',
-          account.from === userAccount?.publicKey.toBase58()
-            ? account.to
-            : account.from,
-        )
-      }
-    })
+    $BlockchainClient.addEventListener(
+      FriendsEvents.FRIEND_REMOVED,
+      (account) => {
+        console.log('FriendsEvents.FRIEND_REMOVED', account, user)
+        if (account) {
+          commit(
+            'removeFriend',
+            account.from === user?.address ? account.to : account.from,
+          )
+        }
+      },
+    )
   },
   /**
    * @method createFriendRequest DocsTODO
@@ -251,73 +239,14 @@ export default {
     { commit }: ActionsArguments<FriendsState>,
     { friendToKey }: CreateFriendRequestArguments,
   ) {
-    const $SolanaManager: SolanaManager = Vue.prototype.$SolanaManager
     const $Crypto: Crypto = Vue.prototype.$Crypto
     const $TextileManager: TextileManager = Vue.prototype.$TextileManager
+    const $BlockchainClient: BlockchainClient = Vue.prototype.$BlockchainClient
 
     const textilePublicKey = $TextileManager.getIdentityPublicKey()
 
     if (!textilePublicKey) {
       throw new Error(FriendsError.TEXTILE_NOT_INITIALIZED)
-    }
-
-    const payerAccount = await $SolanaManager.getActiveAccount()
-
-    if (!payerAccount) {
-      throw new Error(AccountsError.PAYER_NOT_PRESENT)
-    }
-
-    const userAccount = await $SolanaManager.getUserAccount()
-
-    if (!userAccount) {
-      throw new Error(AccountsError.USER_DERIVATION_FAILED)
-    }
-
-    const friendsProgram: FriendsProgram = new FriendsProgram($SolanaManager)
-
-    const friendAccountKey = await friendsProgram.computeFriendAccountKey(
-      userAccount.publicKey,
-      friendToKey,
-    )
-
-    let friendAccountInfo = await friendsProgram.getFriend(friendAccountKey)
-
-    const friendAccountMirroredKey =
-      await friendsProgram.computeFriendAccountKey(
-        friendToKey,
-        userAccount.publicKey,
-      )
-
-    let friendAccountMirroredInfo = await friendsProgram.getFriend(
-      friendAccountMirroredKey,
-    )
-
-    if (!friendAccountInfo) {
-      friendAccountInfo = await friendsProgram.createFriend(
-        userAccount.publicKey,
-        friendToKey,
-      )
-    }
-
-    if (!friendAccountMirroredInfo) {
-      friendAccountMirroredInfo = await friendsProgram.createFriend(
-        friendToKey,
-        userAccount.publicKey,
-      )
-    }
-
-    if (
-      friendAccountInfo.status === FriendStatus.PENDING ||
-      friendAccountMirroredInfo.status === FriendStatus.PENDING
-    ) {
-      throw new Error(FriendsError.REQUEST_ALREADY_SENT)
-    }
-
-    if (
-      friendAccountInfo.status === FriendStatus.ACCEPTED ||
-      friendAccountMirroredInfo.status === FriendStatus.ACCEPTED
-    ) {
-      throw new Error(FriendsError.REQUEST_ALREADY_ACCEPTED)
     }
 
     // Initialize current recipient for encryption
@@ -329,24 +258,16 @@ export default {
       textilePublicKey,
     )
 
-    const transactionHash = await friendsProgram.createFriendRequest(
-      friendAccountKey,
-      friendAccountMirroredKey,
-      userAccount,
-      friendToKey,
-      Buffer.from(encryptedTextilePublicKey.padStart(128, '0')),
+    const friendAccount = await $BlockchainClient.sendFriendRequest(
+      friendToKey.toBase58(),
+      encryptedTextilePublicKey,
     )
 
-    if (transactionHash) {
-      const parsedFriendRequest = await friendsProgram.getParsedFriend(
-        friendAccountKey,
+    if (friendAccount) {
+      commit(
+        'addOutgoingRequest',
+        friendAccountToOutgoingRequest(friendAccount),
       )
-
-      if (parsedFriendRequest)
-        commit(
-          'addOutgoingRequest',
-          friendAccountToOutgoingRequest(parsedFriendRequest),
-        )
     }
   },
   /**
@@ -360,8 +281,8 @@ export default {
     { commit, dispatch }: ActionsArguments<FriendsState>,
     { friendRequest }: AcceptFriendRequestArguments,
   ) {
-    const $SolanaManager: SolanaManager = Vue.prototype.$SolanaManager
     const $Crypto: Crypto = Vue.prototype.$Crypto
+    const $BlockchainClient: BlockchainClient = Vue.prototype.$BlockchainClient
     const $TextileManager: TextileManager = Vue.prototype.$TextileManager
 
     const textilePublicKey = $TextileManager.getIdentityPublicKey()
@@ -370,28 +291,8 @@ export default {
       throw new Error(FriendsError.TEXTILE_NOT_INITIALIZED)
     }
 
-    const payerAccount = await $SolanaManager.getActiveAccount()
-
-    if (!payerAccount) {
-      throw new Error(AccountsError.PAYER_NOT_PRESENT)
-    }
-
-    const userAccount = await $SolanaManager.getUserAccount()
-
-    if (!userAccount) {
-      throw new Error(AccountsError.USER_DERIVATION_FAILED)
-    }
-
-    const friendsProgram: FriendsProgram = new FriendsProgram($SolanaManager)
-
     commit('updateIncomingRequest', { ...friendRequest, pending: true })
     const { account } = friendRequest
-
-    const computedFriendAccountKey =
-      await friendsProgram.computeFriendAccountKey(
-        new PublicKey(account.from),
-        userAccount.publicKey,
-      )
 
     const friendFromKey = friendRequest.account.from
 
@@ -404,14 +305,12 @@ export default {
       textilePublicKey,
     )
 
-    const transactionId = await friendsProgram.acceptFriendRequest(
-      computedFriendAccountKey,
-      new PublicKey(account.from),
-      userAccount,
-      Buffer.from(encryptedIdentityPublicKey.padStart(128, '0')),
+    const result = await $BlockchainClient.acceptFriendRequest(
+      account.from,
+      encryptedIdentityPublicKey,
     )
 
-    if (transactionId) {
+    if (result) {
       dispatch('fetchFriendDetails', account)
     }
   },
@@ -425,43 +324,12 @@ export default {
     { commit }: ActionsArguments<FriendsState>,
     friendRequest: FriendRequest,
   ) {
-    const $SolanaManager: SolanaManager = Vue.prototype.$SolanaManager
-
-    const payerAccount = await $SolanaManager.getActiveAccount()
-
-    if (!payerAccount) {
-      throw new Error(AccountsError.PAYER_NOT_PRESENT)
-    }
-
-    const userAccount = await $SolanaManager.getUserAccount()
-
-    if (!userAccount) {
-      throw new Error(AccountsError.USER_DERIVATION_FAILED)
-    }
-
-    const friendsProgram: FriendsProgram = new FriendsProgram($SolanaManager)
-
-    commit('updateIncomingRequest', { ...friendRequest, pending: true })
-
+    const $BlockchainClient: BlockchainClient = Vue.prototype.$BlockchainClient
     const { account } = friendRequest
 
-    const computedFriendAccountKey =
-      await friendsProgram.computeFriendAccountKey(
-        new PublicKey(account.from),
-        userAccount.publicKey,
-      )
-
-    const transactionId = await friendsProgram.denyFriendRequest(
-      computedFriendAccountKey,
-      new PublicKey(account.from),
-      userAccount,
-    )
-
-    if (transactionId) {
-      commit(
-        'removeIncomingRequest',
-        friendAccountToIncomingRequest(account, null).requestId,
-      )
+    const result = await $BlockchainClient.denyFriendRequest(account.from)
+    if (result) {
+      commit('removeIncomingRequest', account.accountId)
     }
   },
   /**
@@ -474,43 +342,12 @@ export default {
     { commit }: ActionsArguments<FriendsState>,
     friendRequest: OutgoingRequest,
   ) {
-    const $SolanaManager: SolanaManager = Vue.prototype.$SolanaManager
-
-    const payerAccount = await $SolanaManager.getActiveAccount()
-
-    if (!payerAccount) {
-      throw new Error(AccountsError.PAYER_NOT_PRESENT)
-    }
-
-    const userAccount = await $SolanaManager.getUserAccount()
-
-    if (!userAccount) {
-      throw new Error(AccountsError.USER_DERIVATION_FAILED)
-    }
-
-    const friendsProgram: FriendsProgram = new FriendsProgram($SolanaManager)
-
-    commit('updateOutgoingRequest', { ...friendRequest, pending: true })
-
+    const $BlockchainClient: BlockchainClient = Vue.prototype.$BlockchainClient
     const { account } = friendRequest
 
-    const computedFriendAccountMirroredKey =
-      await friendsProgram.computeFriendAccountKey(
-        userAccount.publicKey,
-        new PublicKey(account.to),
-      )
-
-    const transactionId = await friendsProgram.removeFriendRequest(
-      computedFriendAccountMirroredKey,
-      userAccount,
-      new PublicKey(account.to),
-    )
-
-    if (transactionId) {
-      commit(
-        'removeOutgoingRequest',
-        friendAccountToOutgoingRequest(account).requestId,
-      )
+    const result = await $BlockchainClient.removeFriendRequest(account.to)
+    if (result) {
+      commit('removeOutgoingRequest', account.accountId)
     }
   },
   /**
@@ -523,30 +360,12 @@ export default {
     { commit }: ActionsArguments<FriendsState>,
     friend: Friend,
   ) {
-    const $SolanaManager: SolanaManager = Vue.prototype.$SolanaManager
-
-    const payerAccount = await $SolanaManager.getActiveAccount()
-
-    if (!payerAccount) {
-      throw new Error(AccountsError.PAYER_NOT_PRESENT)
-    }
-
-    const userAccount = await $SolanaManager.getUserAccount()
-
-    if (!userAccount) {
-      throw new Error(AccountsError.USER_DERIVATION_FAILED)
-    }
-
-    const friendsProgram: FriendsProgram = new FriendsProgram($SolanaManager)
+    const $BlockchainClient: BlockchainClient = Vue.prototype.$BlockchainClient
 
     const { account } = friend
 
-    const transactionId = await friendsProgram.removeFriend(
-      account,
-      userAccount,
-    )
-
-    if (transactionId) {
+    const result = await $BlockchainClient.removeFriend(account.accountId)
+    if (result) {
       commit('removeFriend', friend.textilePubkey)
     }
   },

@@ -5,6 +5,7 @@ import {
   Adapter,
   CreateUserParams,
   DenyFriendRequestParams,
+  FindFriendsParams,
   FriendsEvents,
   RemoveFriendParams,
   RemoveFriendRequestParams,
@@ -135,12 +136,12 @@ export default class SolanaAdapter implements Adapter {
   }
 
   async removeFriend({
-    friendAddress,
+    friendAccountAddress,
     account,
   }: RemoveFriendParams): Promise<boolean> {
     await this.initSolanaManager(account)
     const { userAccount } = this.getAccounts()
-    const friend = await this.getFriendAccount(friendAddress)
+    const friend = await this.getFriendAccount(friendAccountAddress)
 
     if (friend) {
       const result = await this.friendsProgram.removeFriend(friend, userAccount)
@@ -249,6 +250,16 @@ export default class SolanaAdapter implements Adapter {
     )
 
     return this.getFriendAccount(friendAccountKey.toBase58())
+  }
+
+  async findFriendAccounts(params: FindFriendsParams) {
+    await this.initSolanaManager(params.account)
+    return this.friendsProgram.getFriendAccountsByStatus(params.filter.status)
+  }
+
+  async subscribeToEvents(account: Account) {
+    await this.initSolanaManager(account)
+    this.friendsProgram.subscribeToFriendsEvents()
   }
 
   addEventListener(
