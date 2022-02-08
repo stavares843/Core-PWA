@@ -34,15 +34,12 @@ export default {
   async fetchFriendRequests({ commit }: ActionsArguments<FriendsState>) {
     const $BlockchainClient: BlockchainClient = Vue.prototype.$BlockchainClient
 
-    const { incoming, outgoing } = await $BlockchainClient.findFriendAccounts({
+    const { incoming, outgoing } = await $BlockchainClient.findFriendRequests({
       status: FriendStatus.ACCEPTED,
     })
-    const incomingRequests = await Promise.all(
-      incoming.map(async (account) => {
-        const userInfo = await $BlockchainClient.getUser(account.from)
-        return friendAccountToIncomingRequest(account, userInfo)
-      }),
-    )
+    const incomingRequests = incoming.map((item) => {
+      return friendAccountToIncomingRequest(item, item.fromUser)
+    })
 
     const outgoingRequests = outgoing.map<OutgoingRequest>((account) =>
       friendAccountToOutgoingRequest(account),
@@ -65,10 +62,9 @@ export default {
     )
     const $BlockchainClient: BlockchainClient = Vue.prototype.$BlockchainClient
 
-    const { incoming, outgoing } = await $BlockchainClient.findFriendAccounts({
+    const allFriendsData = await $BlockchainClient.findFriendAccounts({
       status: FriendStatus.ACCEPTED,
     })
-    const allFriendsData = [...incoming, ...outgoing]
 
     allFriendsData.forEach((friendData) => {
       dispatch('fetchFriendDetails', friendData)

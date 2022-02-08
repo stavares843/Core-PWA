@@ -259,7 +259,9 @@ export default class SolanaAdapter implements Adapter {
 
   async findFriendAccounts(params: FindFriendsParams) {
     await this.initSolanaManager(params.account)
-    return this.friendsProgram.getFriendAccountsByStatus(params.filter.status)
+    const { incoming, outgoing } =
+      await this.friendsProgram.getFriendAccountsByStatus(params.filter.status)
+    return [...incoming, ...outgoing]
   }
 
   async subscribeToEvents(account: Account) {

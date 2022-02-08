@@ -3,8 +3,9 @@ import {
   Adapter,
   FindFriendsFilter,
   FriendAccount,
-  FriendRequest,
   FriendsEvents,
+  IncomingFriendRequest,
+  OutgoingFriendRequest,
   User,
 } from './interfaces'
 
@@ -197,8 +198,8 @@ export default class BlockchainClient {
    * @returns {Promise<{incoming: FriendRequest[] outgoing: FriendRequest[]}>}
    */
   async findFriendRequests(filter: FindFriendsFilter): Promise<{
-    incoming: FriendRequest[]
-    outgoing: FriendRequest[]
+    incoming: IncomingFriendRequest[]
+    outgoing: OutgoingFriendRequest[]
   }> {
     const accounts = await this.findFriendAccounts(filter)
     const user = await this.getCurrentUser()

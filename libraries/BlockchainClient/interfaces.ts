@@ -72,9 +72,12 @@ export interface FindFriendsParams {
   filter: FindFriendsFilter
 }
 
-export interface FriendRequest extends FriendAccount {
-  fromUser?: User | null
-  toUser?: User | null
+export interface IncomingFriendRequest extends FriendAccount {
+  fromUser: User | null
+}
+
+export interface OutgoingFriendRequest extends FriendAccount {
+  toUser: User | null
 }
 
 export enum FriendsEvents {
@@ -105,10 +108,6 @@ export interface Adapter {
   removeFriend(params: RemoveFriendParams): Promise<boolean>
   getFriendAccount(address: string): Promise<FriendAccount | null>
   findFriendAccounts(params: FindFriendsParams): Promise<FriendAccount[]>
-  findFriendRequests(filter: FindFriendsFilter): Promise<{
-    incoming: FriendRequest[]
-    outgoing: FriendRequest[]
-  }>
 
   subscribeToEvents(account: Account): Promise<void>
   removeEventListener(
