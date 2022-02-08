@@ -2,8 +2,8 @@ import {
   Account,
   Adapter,
   FindFriendsFilter,
-  FindFriendsResult,
   FriendAccount,
+  FriendRequest,
   FriendsEvents,
   User,
 } from './interfaces'
@@ -180,15 +180,47 @@ export default class BlockchainClient {
   /**
    * Search friend accounts by filter
    * @param filter {FindFriendsFilter}
-   * @returns {Promise<FindFriendsResult>}
+   * @returns {Promise<FriendAccount[]>}
    */
   async findFriendAccounts(
     filter: FindFriendsFilter,
-  ): Promise<FindFriendsResult> {
+  ): Promise<FriendAccount[]> {
     return this.adapter.findFriendAccounts({
       filter,
       account: this.account,
     })
+  }
+
+  /**
+   * Search friend requests by filter
+   * @param filter {FindFriendsFilter}
+   * @returns {Promise<{incoming: FriendRequest[] outgoing: FriendRequest[]}>}
+   */
+  async findFriendRequests(filter: FindFriendsFilter): Promise<{
+    incoming: FriendRequest[]
+    outgoing: FriendRequest[]
+  }> {
+    const accounts = await this.findFriendAccounts(filter)
+    const user = await this.getCurrentUser()
+
+    const outgoing = await Promise.all(
+      accounts
+        .filter((item) => item.from === user?.address)
+        .map(async (item) => ({
+          ...item,
+          toUser: await this.getUser(item.to),
+        })),
+    )
+
+    const incoming = await Promise.all(
+      accounts
+        .filter((item) => item.from !== user?.address)
+        .map(async (item) => ({
+          ...item,
+          fromUser: await this.getUser(item.from),
+        })),
+    )
+    return { incoming, outgoing }
   }
 
   subscribeToEvents() {

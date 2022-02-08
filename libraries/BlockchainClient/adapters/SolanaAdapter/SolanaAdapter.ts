@@ -125,6 +125,11 @@ export default class SolanaAdapter implements Adapter {
     return null
   }
 
+  async getUsers(addresses: string[]): Promise<User[]> {
+    const items = await Promise.all(addresses.map(this.getUser))
+    return items.filter((item): item is User => !!item)
+  }
+
   async getAccountUser(account: Account): Promise<User | null> {
     await this.initSolanaManager(account)
     const { userAccount } = this.getAccounts()
