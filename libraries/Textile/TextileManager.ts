@@ -74,6 +74,7 @@ export default class TextileManager {
     this.groupChatManager = new GroupChatManager(
       textile,
       textile.wallet.address,
+      textile.identity,
     )
   }
 
