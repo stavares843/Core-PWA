@@ -49,8 +49,8 @@ export const Config = {
     friendsProgramId: 'BxX6o2HG5DWrJt2v8GMSWNG2V2NtxNbAUF3wdE5Ao5gS',
     defaultCommitment: 'confirmed' as Commitment,
     defaultPreflightCommitment: 'confirmed' as Commitment,
-    usersPrograId: '7MaC2xrAmmFsuRBEkD6BEL3eJpXCmaikYhLM3eKBPhAH',
-    groupchatsPrograId: 'bJhvwTYCkQceANgeShZ4xaxUqEBPsV8e1NgRnLRymxs',
+    usersProgramId: '7MaC2xrAmmFsuRBEkD6BEL3eJpXCmaikYhLM3eKBPhAH',
+    groupchatsProgramId: 'bJhvwTYCkQceANgeShZ4xaxUqEBPsV8e1NgRnLRymxs',
   },
   // Realms are just different chains we support
   realms: [
