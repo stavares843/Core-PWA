@@ -49,13 +49,11 @@ export default Vue.extend({
           show: true,
           route: data,
         })
+        this.openEmoji()
       },
     },
   },
   watch: {
-    route() {
-      this.openEmoji()
-    },
     'ui.enhancers.show'(value) {
       if (value) this.openEmoji()
     },
