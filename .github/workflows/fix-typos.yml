@@ -2,7 +2,7 @@ name: Automatically fix typos
 on:
   push:
     branches:
-      - iridium-dev
+      - dev
 
 jobs:
   build:
