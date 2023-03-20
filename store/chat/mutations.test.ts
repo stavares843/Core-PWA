@@ -157,6 +157,40 @@ describe('misc', () => {
     expect(state.draftMessages[argument.conversationId]).toBe(argument.message)
   })
 
+  test('module.default.clearReplyChatbarMessage', () => {
+    const state = {
+      ...InitialChatState,
+      replyChatbarMessages: {
+        conversation_id: 'no_message',
+      },
+    }
+    const argument = {
+      conversationId: 'conversation_id',
+      message: 'message',
+    }
+
+    module.default.clearReplyChatbarMessage(state, argument)
+    expect(state.replyChatbarMessages).toEqual({})
+  })
+
+  test('module.default.setReplyChatbarMessage', () => {
+    const state = {
+      ...InitialChatState,
+      replyChatbarMessages: {
+        conversation_id: 'no_message',
+      },
+    }
+    const argument = {
+      conversationId: 'conversation_id',
+      message: 'message',
+    }
+
+    module.default.setReplyChatbarMessage(state, argument)
+    expect(state.replyChatbarMessages[argument.conversationId]).toBe(
+      argument.message,
+    )
+  })
+
   test('module.default.setActiveUploadChat', () => {
     const state = InitialChatState()
     const argument = 'conversation_id'
@@ -188,6 +222,28 @@ describe('misc', () => {
     expect(state.activeUploadChats).toEqual([argument])
     module.default.removeActiveUploadChat(state, argument)
     expect(state.activeUploadChats).toEqual([])
+  })
+
+  test('module.default.setEnhancersRoute', () => {
+    const state = InitialChatState()
+    const argument = 'emoji'
+
+    module.default.setEnhancersRoute(state, argument)
+    expect(state.enhancersRoute).toEqual(argument)
+  })
+
+  test('module.default.setMessageReaction', () => {
+    const state = InitialChatState()
+    const argument = {
+      messageId: 'message',
+      conversationId: 'conversation',
+    }
+
+    module.default.setMessageReaction(state, argument)
+    expect(state.messageReaction).toEqual({
+      conversationId: 'conversation',
+      messageId: 'message',
+    })
   })
 
   test('module.default.removeActiveUploadChat for more than two calls', () => {

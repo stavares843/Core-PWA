@@ -53,10 +53,11 @@ export function conversationHooks(conversationId?: Conversation['id']) {
     if (!conversation.value) {
       return []
     }
+    const collator = new Intl.Collator()
     const arr = conversation.value.participants
       .map((p) => managers.users.getUser(p))
       .filter(truthy)
-    return arr.sort((a, b) => a?.name?.localeCompare(b?.name))
+    return arr.sort((a, b) => collator.compare(a.name, b.name))
   })
 
   const sortedMessages: ComputedRef<ConversationMessage[]> = computed(() => {
@@ -68,9 +69,7 @@ export function conversationHooks(conversationId?: Conversation['id']) {
       return []
     }
 
-    return Object.values(
-      managers.chat.state.conversations[conversationId]?.message,
-    ).sort((a, b) => a.at - b.at)
+    return sortConversationMessages(conversationId)
   })
 
   const numUnreadMessages: ComputedRef<number> = computed(() => {
@@ -91,9 +90,39 @@ export function conversationHooks(conversationId?: Conversation['id']) {
     return count
   })
 
+  // generic hooks that aren't specific to one conversation
+  const sortedConversations: ComputedRef<Conversation[]> = computed(() => {
+    return Object.values(managers.chat.state.conversations).sort(
+      (a, b) => lastMessageTimestamp(b) - lastMessageTimestamp(a),
+    )
+  })
+
+  const totalUnreadMessages: ComputedRef<number> = computed(() => {
+    let count = 0
+
+    Object.keys(managers.chat.state.conversations).forEach((id) => {
+      const { numUnreadMessages } = conversationHooks(id)
+      count += numUnreadMessages.value
+    })
+    return count
+  })
+
+  // helper functions
+  function lastMessageTimestamp(conversation: Conversation): number {
+    const messages = sortConversationMessages(conversation.id)
+    return messages[messages.length - 1]?.at ?? (conversation.createdAt || 0)
+  }
+
+  function sortConversationMessages(
+    id: Conversation['id'],
+  ): ConversationMessage[] {
+    return Object.values(managers.chat.state.conversations[id]?.message).sort(
+      (a, b) => a.at - b.at,
+    )
+  }
+
   return {
     conversation,
-    conversationId,
     isGroup,
     otherDids,
     otherParticipants,
@@ -101,5 +130,7 @@ export function conversationHooks(conversationId?: Conversation['id']) {
     allParticipantsAlphaSorted,
     sortedMessages,
     numUnreadMessages,
+    sortedConversations,
+    totalUnreadMessages,
   }
 }

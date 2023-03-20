@@ -1,92 +1,60 @@
+import { LocalNotifications } from '@capacitor/local-notifications'
 import {
-  Notification,
-  NotificationType,
   NotificationBase,
+  NotificationPayloads,
+  NotificationTypeValues,
+  ActionTypeIds,
+  NotifActionHandler,
+  NotifActionTypes,
 } from '~/libraries/Iridium/notifications/types'
 import iridium from '~/libraries/Iridium/IridiumManager'
+import { EnvInfo } from '~~/utilities/EnvInfo'
+import { PlatformTypeEnum } from '~~/libraries/Enums/enums'
+import useNotifActionHandlers from '~~/components/compositions/useNotifActionHandlers'
+import useNotifCreateHandlers from '~~/components/compositions/useNotifCreateHandlers'
 
 export function listenToNotifications() {
-  // @ts-ignore
-  const $nuxt = useNuxtApp()
+  const envinfo = new EnvInfo()
+  const { notifActionHandlers } = useNotifActionHandlers()
 
-  iridium.notifications.on('notification/create', (data: NotificationBase) => {
-    const { title, description } = getNotificationText(data)
+  // Listen for incoming notifications and handle them in the app
+  iridium.notifications.on(
+    'notification/create',
+    (notification: NotificationBase<keyof NotificationTypeValues>) => {
+      const { notifCreateHandlers } = useNotifCreateHandlers()
+      const notifCreateHandler = notifCreateHandlers[notification.type].handler
 
-    const notification: Notification = {
-      at: data.at || Date.now(),
-      type: data.type,
-      senderId: data.senderId,
-      title,
-      description,
-      seen: false,
-      image: data.image || '',
-      onNotificationClick: () => handleNotificationClick(data),
-    }
+      if (notifCreateHandler) {
+        notifCreateHandler(notification)
+      }
+    },
+  )
 
-    iridium.notifications.sendNotification(notification)
-  })
+  // Listen to notification actions on Android devices (e.g. when the user clicks on a notification action)
+  if (
+    envinfo.currentPlatform === PlatformTypeEnum.ANDROID ||
+    envinfo.currentPlatform === PlatformTypeEnum.IOS
+  ) {
+    LocalNotifications.addListener(
+      'localNotificationActionPerformed',
+      (notif) => {
+        const actionTypeId = notif.notification.actionTypeId as ActionTypeIds
+        const notifActionHandler = notifActionHandlers[
+          actionTypeId
+        ] as NotifActionHandler<NotificationPayloads>
 
-  const getNotificationText = (notification: NotificationBase) => {
-    const { type, senderId, conversationId } = notification
-    const sender = iridium.users.getUser(senderId)
-    const defaultText = {
-      title: 'Notification',
-      description: 'You have a new notification',
-    }
+        if (notifActionHandler) {
+          const actionId = notif.actionId as NotifActionTypes
+          const handler = notifActionHandler[actionId]
 
-    switch (type) {
-      case NotificationType.FRIEND_REQUEST:
-        return {
-          title: 'New Friend Request',
-          description: `${sender?.name} sent you a friend request`,
+          if (handler) {
+            handler(
+              notif.notification.extra as NotificationPayloads,
+              notif.inputValue,
+            )
+          }
         }
-
-      case NotificationType.GROUP_MESSAGE:
-      case NotificationType.DIRECT_MESSAGE: {
-        if (!conversationId) return defaultText
-        const conversation = iridium.chat.getConversation(conversationId)
-        if (!conversation) return defaultText
-        if (!notification.messageId) return defaultText
-        const message = conversation.message[notification.messageId]
-
-        const isGroup = type === NotificationType.GROUP_MESSAGE
-        const groupTitle = $nuxt.$t('notifications.new_message.group_title', {
-          name: conversation.name,
-          server: conversation.name,
-        })
-        const description =
-          message.body?.length! > 79
-            ? `${message.body?.substring(0, 80)}...`
-            : message.body || ''
-
-        return {
-          title: isGroup ? groupTitle : `${sender?.name}`,
-          description,
-        }
-      }
-
-      default:
-        return defaultText
-    }
-  }
-
-  const handleNotificationClick = (notification: NotificationBase) => {
-    switch (notification.type) {
-      case NotificationType.FRIEND_REQUEST: {
-        const mobileLink = '/mobile/friends?route=requests'
-        const desktopLink = '/friends?route=requests'
-        $nuxt.$router.push($nuxt.$device.isMobile ? mobileLink : desktopLink)
-        break
-      }
-      case NotificationType.GROUP_MESSAGE:
-      case NotificationType.DIRECT_MESSAGE:
-      case NotificationType.MENTION: {
-        const conversationId = notification.conversationId
-        const mobileLink = `/mobile/chat/${conversationId}`
-        const desktopLink = `/chat/${conversationId}`
-        $nuxt.$router.push($nuxt.$device.isMobile ? mobileLink : desktopLink)
-        break
-      }
-    }
+      },
+    )
   }
 }

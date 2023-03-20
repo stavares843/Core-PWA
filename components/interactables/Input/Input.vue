@@ -6,6 +6,7 @@ import { DeleteIcon, EyeIcon, EyeOffIcon } from 'satellite-lucide-icons'
 import whatInput from 'what-input'
 import { InputType, InputColor } from './types'
 import { Size } from '~/types/typography'
+import { ButtonType } from '~/components/interactables/Button/types'
 
 const MOBILE_FOCUS_DELAY = 300 // ms
 
@@ -15,7 +16,7 @@ enum Appends {
   Custom = 'custom',
 }
 
-export default Vue.extend({
+const Input = Vue.extend({
   components: {
     DeleteIcon,
     EyeIcon,
@@ -91,7 +92,7 @@ export default Vue.extend({
       default: '',
     },
     buttonType: {
-      type: String as PropType<InputType>,
+      type: String as PropType<ButtonType>,
       default: 'button',
     },
     transparent: {
@@ -175,6 +176,9 @@ export default Vue.extend({
     },
   },
 })
+
+export type InputRef = InstanceType<typeof Input>
+export default Input
 </script>
 
 <style scoped lang="less" src="./Input.less"></style>

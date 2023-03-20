@@ -1,63 +1,168 @@
 <template>
-  <div ref="root" class="infinite-scroll" />
+  <div
+    ref="container"
+    class="scroller"
+    @scroll="
+      onScrollThrottle()
+      onScrollDebounce()
+    "
+    @mouseup="onMouseUp"
+    @mousedown="onMouseDown"
+  >
+    <slot :is-scrolling="isScrolling" />
+  </div>
 </template>
 
 <script lang="ts">
-import { throttle } from 'lodash'
+import { debounce, throttle } from 'lodash'
+import Vue from 'vue'
 
-// the higher the sooner we trigger the 'loadMore' emit
-const LOADING_TOLERANCE = 0.25
-
-export default {
+const Scroller = Vue.extend({
   name: 'InfiniteScroll',
   props: {
     isLoading: {
       type: Boolean,
       required: true,
     },
-    noMore: {
+    noTrailing: {
+      type: Boolean,
+      default: false,
+    },
+    noLeading: {
       type: Boolean,
       default: false,
     },
   },
+  data: () => ({
+    isLockedToBottom: true,
+    isScrolling: false,
+    isScrollbarDragged: false,
+    resizeContainerObserver: null as ResizeObserver | null,
+    timeoutScrolling: undefined as undefined | NodeJS.Timer,
+  }),
   computed: {
-    parentElement(): HTMLElement {
-      return (this.$refs.root as HTMLElement).parentElement as HTMLElement
+    trailingMessageLoader(): HTMLElement | null {
+      return this.noTrailing
+        ? null
+        : (document.querySelector(
+            `[data-id="trailing-message-scroll-loader"]`,
+          ) as HTMLElement)
     },
-    messageLoaderHeight(): number {
-      return (
-        (
-          document.querySelector(
-            `[data-id="message-scroll-loader"]`,
-          ) as HTMLElement
-        )?.offsetHeight ?? 0
-      )
+    leadingMessageLoader(): HTMLElement | null {
+      return this.noLeading
+        ? null
+        : (document.querySelector(
+            `[data-id="leading-message-scroll-loader"]`,
+          ) as HTMLElement)
     },
   },
   mounted() {
-    this.parentElement.addEventListener('wheel', this.scrollHandler)
-    this.parentElement.addEventListener('touchmove', this.scrollHandler)
+    const container = this.$refs.container as HTMLElement | undefined
+    if (!container) {
+      return
+    }
+
+    this.resizeContainerObserver = new ResizeObserver(() => {
+      if (this.isLockedToBottom) {
+        this.scrollToBottom()
+      }
+    })
+    this.resizeContainerObserver.observe(container)
   },
   beforeDestroy() {
-    this.parentElement.removeEventListener('wheel', this.scrollHandler)
-    this.parentElement.removeEventListener('touchmove', this.scrollHandler)
+    this.resizeContainerObserver?.disconnect()
   },
   methods: {
-    scrollHandler: throttle(function (this: any) {
-      const contentPart =
-        (this.parentElement.scrollHeight - this.messageLoaderHeight) *
-        LOADING_TOLERANCE
+    onScrollThrottle: throttle(function (this: any) {
+      this.isScrolling = true
+      clearTimeout(this.timeoutScrolling)
+      this.timeoutScrolling = setTimeout(() => {
+        this.isScrolling = false
+      }, 150)
 
+      this.emit()
+    }, 100),
+    onScrollDebounce: debounce(function (this: any) {
+      const container = this.$refs.container as HTMLElement | null
+      if (!container) return
+
+      this.isLockedToBottom =
+        container.scrollTop + container.clientHeight >=
+          container.scrollHeight - 1 && this.noLeading
+
+      if (this.isLockedToBottom) {
+        this.$emit('bottomReached')
+      }
+      // when reaching the top of the loader bring the scroll to the beginning of the loader
       if (
-        this.isLoading ||
-        this.noMore ||
-        this.parentElement.scrollTop > this.messageLoaderHeight + contentPart
+        this.trailingMessageLoader &&
+        container.scrollTop === 0 &&
+        !this.isScrollbarDragged
       ) {
-        return
+        this.trailingMessageLoader.scrollIntoView(false)
+      }
+    }, 100),
+    emit() {
+      const container = this.$refs.container as HTMLElement | null
+      if (!container) return
+
+      const commonCond = !this.isLoading && !this.isScrollbarDragged
+      if (this.leadingMessageLoader) {
+        const distanceFromBottom =
+          container.scrollHeight - container.clientHeight - container.scrollTop
+
+        if (
+          commonCond &&
+          !this.noLeading &&
+          distanceFromBottom <=
+            this.leadingMessageLoader.offsetHeight + container.clientHeight
+        ) {
+          this.$emit('loadLess')
+        }
       }
 
-      this.$emit('loadMore')
-    }, 100),
+      if (
+        this.trailingMessageLoader &&
+        commonCond &&
+        !this.noTrailing &&
+        container.scrollTop <=
+          this.trailingMessageLoader.offsetHeight + container.clientHeight
+      ) {
+        this.$emit('loadMore')
+      }
+    },
+    scrollToBottom() {
+      this.$nextTick(() => {
+        const container = this.$refs.container as HTMLElement | null
+        if (!container) return
+        container.scrollTop = container.scrollHeight
+      })
+    },
+    onMouseUp() {
+      const container = this.$refs.container as HTMLElement | null
+      if (!container) return
+
+      if (this.isScrollbarDragged) {
+        this.isScrollbarDragged = false
+        this.emit()
+      }
+    },
+    onMouseDown(e: MouseEvent) {
+      const container = this.$refs.container as HTMLElement | null
+      if (!container) return
+      this.isScrollbarDragged =
+        e.target === container && e.offsetX > container.clientWidth
+    },
   },
-}
+})
+
+export type ScrollerRef = InstanceType<typeof Scroller>
+export default Scroller
 </script>
+
+<style scoped lang="less">
+.scroller {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+</style>

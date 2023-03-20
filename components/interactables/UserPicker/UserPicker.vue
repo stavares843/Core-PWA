@@ -1,64 +1,89 @@
-<template src="./UserPicker.html"></template>
+<template>
+  <div class="user-picker">
+    <div class="chips">
+      <InteractablesChip
+        v-for="friend in selected"
+        :key="friend.did"
+        :text="friend.name"
+        :user="friend"
+        size="xs"
+        @delete="toggle(friend)"
+      />
+    </div>
+    <InteractablesInput
+      v-model="filter"
+      size="xs"
+      :placeholder="$t('friends.search_placeholder')"
+    />
+    <div class="users" :style="{ height: height }">
+      <TypographyText
+        v-if="!filteredFriends.length"
+        class="empty-results-text"
+        color="dark"
+        size="sm"
+      >
+        {{ $t('ui.no_results') }}
+      </TypographyText>
+      <InteractablesUserPickerListItem
+        v-for="friend in filteredFriends"
+        v-else
+        :key="friend.did"
+        :friend="friend"
+        :selected="isSelected(friend)"
+        @click="toggle(friend)"
+      />
+    </div>
+  </div>
+</template>
 
-<script lang="ts">
-import Vue, { PropType } from 'vue'
-import { Friend } from '~/libraries/Iridium/friends/types'
-import iridium from '~/libraries/Iridium/IridiumManager'
+<script setup lang="ts">
+import { ref, computed, ComputedRef, Ref, watch } from 'vue'
+import fuzzysort from 'fuzzysort'
+import { User } from '~/libraries/Iridium/users/types'
+import { friendsHooks } from '~/components/compositions/friends'
 
-export default Vue.extend({
-  name: 'UserPicker',
-  props: {
-    exclude: {
-      type: Array as PropType<Friend['did'][]>,
-      default: () => [],
-    },
-    height: {
-      type: String,
-      default: () => undefined,
-    },
-  },
-  data: () => ({
-    selected: [] as Friend[],
-    filter: '',
-    fm: iridium.friends.state,
-  }),
-  computed: {
-    friends() {
-      return Object.values(this.fm.friends)
-        .filter((did) => !this.exclude.includes(did))
-        .map((did) => {
-          return iridium.users.getUser(did)
-        })
-    },
-    filteredFriends(): Friend[] {
-      if (!this.filter) {
-        return this.friends
-      }
-      const filterLower = this.filter.toLowerCase()
-      return this.friends.filter((friend: Friend) => {
-        return friend.name.toLowerCase().includes(filterLower)
-      })
-    },
-  },
-  watch: {
-    selected() {
-      this.$emit('input', this.selected)
-    },
-  },
-  methods: {
-    toggle(friend: Friend): void {
-      if (this.isSelected(friend)) {
-        const index = this.selected.indexOf(friend)
-        this.selected.splice(index, 1)
-        return
-      }
-      this.selected.push(friend)
-    },
-    isSelected(friend: Friend): boolean {
-      return this.selected.includes(friend)
-    },
-  },
+interface Props {
+  height: string
+  exclude?: User['did'][]
+}
+const props = withDefaults(defineProps<Props>(), {
+  exclude: () => [],
 })
+
+interface Emits {
+  (e: 'input', value: User[]): void
+}
+const emit = defineEmits<Emits>()
+
+const { friends } = friendsHooks()
+const selected: Ref<User[]> = ref([])
+const filter: Ref<string> = ref('')
+
+const friendsWithoutExcluded: ComputedRef<User[]> = computed(() => {
+  return friends.value.filter((friend) => !props.exclude.includes(friend.did))
+})
+
+const filteredFriends: ComputedRef<User[]> = computed(() => {
+  if (!filter.value) return friendsWithoutExcluded.value
+  return fuzzysort
+    .go(filter.value, friendsWithoutExcluded.value, {
+      keys: ['name'],
+    })
+    .map((result) => result.obj)
+})
+
+const isSelected = (friend: User) => selected.value.includes(friend)
+
+const toggle = (friend: User) => {
+  if (isSelected(friend)) {
+    selected.value = selected.value.filter((f) => f.did !== friend.did)
+  } else {
+    selected.value = [...selected.value, friend]
+  }
+  emit('input', selected.value)
+}
+
+watch(selected, (value: User[]) => emit('input', value))
 </script>
 
 <style scoped lang="less" src="./UserPicker.less"></style>

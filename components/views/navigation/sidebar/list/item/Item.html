@@ -1,13 +1,12 @@
 <UiContextMenu
   class="wrapper"
-  :class="{ 'is-loading': isLoading}"
+  :class="{ 'is-loading': isLoading }"
   :items="contextMenuValues"
 >
-  <button
+  <nuxt-link
     class="item"
-    :class="{ selected: isSelected }"
+    :to="`${$device.isMobile ? '/mobile' : ''}/chat/${conversationId}`"
     data-cy="sidebar-user"
-    @click="openConversation"
   >
     <UiUserState
       v-if="conversation.type === 'direct'"
@@ -32,7 +31,7 @@
 
         <TypographyText
           class="timestamp"
-          v-if="sortedMessages.length"
+          v-if="timestamp"
           color="dark"
           size="xs"
         >
@@ -57,7 +56,7 @@
         />
       </div>
     </div>
-  </button>
+  </nuxt-link>
 
   <div class="loader">
     <UiLoadersSpinner :spinning="isLoading" />

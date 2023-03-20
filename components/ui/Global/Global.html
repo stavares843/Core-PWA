@@ -17,51 +17,20 @@
       v-if="ui.modals.callToAction"
       @close="() => toggleModal(ModalWindows.CALL_TO_ACTION)"
     >
-      <CallToAction @close="toggleModal(ModalWindows.CALL_TO_ACTION)" />
+      <CallToAction />
     </UiModal>
     <SettingsModal v-if="ui.settingsRoute && !$device.isMobile" />
     <UiModal v-if="ui.modals.wallet" @close="toggleModal(ModalWindows.WALLET)">
       <WalletPopup />
     </UiModal>
-    <!-- <UiModal
-      v-if="ui.modals.createServer"
-      :close-modal="() => toggleModal(ModalWindows.CREATE_SERVER)"
-      :title="$t('servers.create.heading')"
-    >
-      <ServersCreate
-        v-click-outside="() => toggleModal(ModalWindows.CREATE_SERVER)"
-        :close-modal="() => toggleModal(ModalWindows.CREATE_SERVER)"
-      />
-    </UiModal> -->
-    <!-- <UiModal
-      v-if="ui.modals.error"
-      :title="$t('popups.error.title')"
-      @close="toggleModal(ModalWindows.ERROR)"
-    >
-      <UiPopupsError
-        v-click-outside="() => toggleModal(ModalWindows.ERROR)"
-        :close-modal="() => toggleModal(ModalWindows.ERROR)"
-        :set-close-timeout="5000"
-      />
-    </UiModal> -->
     <UiModal
       v-if="ui.modals.marketplace"
       @close="toggleModal(ModalWindows.MARKETPLACE)"
     >
-      <Marketplace
-        v-click-outside="() => toggleModal(ModalWindows.MARKETPLACE)"
-        @close="toggleModal(ModalWindows.MARKETPLACE)"
-      />
+      <Marketplace @close="toggleModal(ModalWindows.MARKETPLACE)" />
     </UiModal>
-    <UiModal
-      v-if="ui.modals.glyph"
-      @close="toggleModal(ModalWindows.GLYPH)"
-      small
-    >
-      <Glyphs
-        v-click-outside="() => toggleModal(ModalWindows.GLYPH)"
-        @close="toggleModal(ModalWindows.GLYPH)"
-      />
+    <UiModal v-if="ui.modals.glyph" @close="toggleModal(ModalWindows.GLYPH)">
+      <Glyphs @close="toggleModal(ModalWindows.GLYPH)" />
     </UiModal>
     <UiModal
       v-if="ui.fullProfile"
@@ -73,10 +42,11 @@
       v-if="ui.modals.renameFile"
       @close="toggleModal(ModalWindows.RENAME_FILE)"
     >
-      <FilesRename />
+      <FilesRename @close="toggleModal(ModalWindows.RENAME_FILE)" />
     </UiModal>
     <UiModal
       v-if="ui.modals.changelog"
+      :showCloseButton="false"
       @close="toggleModal(ModalWindows.CHANGELOG)"
     >
       <UiUpdateModal />
@@ -98,6 +68,7 @@
     </UiModal>
     <UiModal
       v-if="isNewAccount"
+      :showCloseButton="false"
       @close="$store.commit('accounts/setNewAccount', false)"
     >
       <UiWelcomeModal />
@@ -105,6 +76,10 @@
   </transition>
   <transition :name="$device.isMobile ? 'slide' : ''">
     <InteractablesQuickProfile v-if="ui.quickProfile" />
+    <SidebarQuick
+      v-if="$device.isMobile && modal.type === ModalTypes.QUICK_CHAT"
+      @toggle="modal.type = ModalTypes.EMPTY"
+    />
   </transition>
   <UiPip
     v-if="$device.isDesktop && isBackgroundCall"

@@ -2,6 +2,7 @@ const faker = require('faker')
 const randomNumber = faker.datatype.number() // generate random number
 const randomMessage = faker.lorem.sentence() // generate random sentence
 const imageLocalPath = 'cypress/fixtures/images/logo.png'
+let expectedEmojiFrequentList
 let imageURL, expecedEditedMessage, secondUserName
 
 describe('Chat Features Tests', () => {
@@ -9,7 +10,7 @@ describe('Chat Features Tests', () => {
     //Retrieve username from Chat User B
     cy.restoreLocalStorage('Chat User B')
     cy.getLocalStorage('Satellite-Store').then((ls) => {
-      let tempLS = JSON.parse(ls)
+      const tempLS = JSON.parse(ls)
       secondUserName = tempLS.accounts.details.name
     })
   })
@@ -21,6 +22,7 @@ describe('Chat Features Tests', () => {
     // Validate message is sent
     cy.goToConversation(secondUserName)
     cy.chatFeaturesSendMessage(randomMessage)
+    expecedEditedMessage = randomMessage
   })
 
   it('Chat - Send Emoji on chat', () => {
@@ -29,7 +31,7 @@ describe('Chat Features Tests', () => {
 
   it('Chat - Edit message on chat by hovering and selecting edit button', () => {
     cy.chatFeaturesEditMessage(randomMessage, randomNumber, 'hover')
-    expecedEditedMessage = randomMessage + randomNumber
+    expecedEditedMessage += randomNumber
   })
 
   it('Chat - Edit message on chat using right-click', () => {
@@ -117,16 +119,6 @@ describe('Chat Features Tests', () => {
     cy.get('.file-info > .title').should('contain', 'logo.png')
   })
 
-  it('Chat - Verify when clicking on Send Money, coming soon appears', () => {
-    // Hover over on Send Money and Coming Soon tooltip will appear when clicking on its button
-    cy.hoverOnComingSoonIcon(
-      '[data-cy=send-money]',
-      'Send Money (Coming Soon)',
-    ).then(() => {
-      cy.contains('Send Money (Coming Soon)').should('not.exist')
-    })
-  })
-
   it('Chat - Verify when clicking on Emoji, the emoji picker appears', () => {
     // Emoji picker is displayed  when clicking on its button
     cy.get('[data-cy=send-emoji]').click()
@@ -145,7 +137,6 @@ describe('Chat Features Tests', () => {
     // Glyphs picker is displayed when clicking on its button
     cy.get('[data-cy=emoji-picker]').should('not.exist')
     cy.get('[data-cy=send-glyph]').click()
-    cy.contains('Try using some glyphs').should('be.visible')
     cy.get('[data-cy=glyphs-picker]').should('be.visible')
     //Click outside to close the glyphs picker
     cy.get('body')
@@ -155,9 +146,49 @@ describe('Chat Features Tests', () => {
       })
   })
 
+  it('Chat - Switching Glyphs/Emoji pickers ', () => {
+    // Open Emoji Picker and ensure that only emoji picker its visible
+    cy.get('[data-cy=send-emoji]').click()
+    cy.validateActiveGlyphsEmojiPicker('emoji')
+
+    // Click on Emoji Tab and ensure that only emoji picker its visible
+    cy.get('[data-cy=glyphs-emoji-active]').click()
+    cy.validateActiveGlyphsEmojiPicker('emoji')
+
+    // Click on Glyphs Tab and ensure that only glyphs picker its visible
+    cy.get('[data-cy=glyphs-emoji-inactive]').click()
+    cy.validateActiveGlyphsEmojiPicker('glyphs')
+
+    // Click on Emoji Tab again and ensure that only emoji picker its visible
+    cy.get('[data-cy=glyphs-emoji-inactive]').click()
+    cy.validateActiveGlyphsEmojiPicker('emoji')
+
+    // Click on Send Glyph button and ensure that only glyphs picker its visible
+    cy.get('[data-cy=send-glyph]').click()
+    cy.validateActiveGlyphsEmojiPicker('glyphs')
+
+    // Click on Send Emoji button and ensure that only emoji picker its visible
+    cy.get('[data-cy=send-emoji]').click()
+    cy.validateActiveGlyphsEmojiPicker('emoji')
+
+    // Click again on Send Glyph button and ensure that only glyphs picker its visible
+    cy.get('[data-cy=send-glyph]').click()
+    cy.validateActiveGlyphsEmojiPicker('glyphs')
+
+    // Click on Glyphs Tab and ensure that only glyphs picker its visible
+    cy.get('[data-cy=glyphs-emoji-active]').click()
+    cy.validateActiveGlyphsEmojiPicker('glyphs')
+
+    // Click on Emoji Tab and ensure that only glyphs picker its visible
+    cy.get('[data-cy=glyphs-emoji-active]').click()
+    cy.validateActiveGlyphsEmojiPicker('glyphs')
+
+    // Click on Esc to close Glyphs/Emoji picker
+    cy.get('body').type('{esc}')
+  })
+
   it('Chat - Validate User ID can be copied when clicked on it', () => {
     cy.chatFeaturesProfileName()
-    cy.contains('ATTN: Copied to clipboard.').should('be.visible')
   })
 
   //Test is skipped because Profile Screen cannot be accessed now from Main Chat Page
@@ -168,5 +199,101 @@ describe('Chat Features Tests', () => {
   //Test is skipped because Profile Screen cannot be accessed now from Main Chat Page
   it.skip('Chat - Assert note from user profile', () => {
     cy.addOrAssertProfileNote('This is a test note' + randomNumber, 'assert')
+  })
+
+  it('Chat - Emoji Picker - Frequently used - Validate list order', () => {
+    //Assign the same emojis previously sent to our expected list variable
+    expectedEmojiFrequentList = '😄😃😀😊😉😍😘😚😗😙'
+
+    // Send 9 different emojis, so we can have 10 emojis sent on the list
+    cy.chatFeaturesSendEmoji('[title="smiley"]', '😃', false)
+    cy.chatFeaturesSendEmoji('[title="grinning"]', '😀', false)
+    cy.chatFeaturesSendEmoji('[title="blush"]', '😊', false)
+    cy.chatFeaturesSendEmoji('[title="wink"]', '😉', false)
+    cy.chatFeaturesSendEmoji('[title="heart_eyes"]', '😍', false)
+    cy.chatFeaturesSendEmoji('[title="kissing_heart"]', '😘', false)
+    cy.chatFeaturesSendEmoji('[title="kissing_closed_eyes"]', '😚', false)
+    cy.chatFeaturesSendEmoji('[title="kissing"]', '😗', false)
+    cy.chatFeaturesSendEmoji('[title="kissing_smiling_eyes"]', '😙', false)
+
+    //Validate emoji frequently used list has the expected order
+    cy.validateFrequentEmojiItems(expectedEmojiFrequentList)
+
+    //Clear editable input
+    cy.get('[data-cy=editable-input]').click().clear()
+  })
+
+  it('Chat - Emoji - Frequently used - List will be updated and emoji sent more times will be first', () => {
+    // Select 3x times joy emoji (not previously clicked)
+    cy.chatFeaturesSendEmoji('[title="joy"]', '😂', false)
+    cy.chatFeaturesSendEmoji('[title="joy"]', '😂', false)
+    cy.chatFeaturesSendEmoji('[title="joy"]', '😂', false)
+
+    // Select 3x times heart eyes emoji (now clicked 4 times)
+    cy.chatFeaturesSendEmoji('[title="heart_eyes"]', '😍', false)
+    cy.chatFeaturesSendEmoji('[title="heart_eyes"]', '😍', false)
+    cy.chatFeaturesSendEmoji('[title="heart_eyes"]', '😍', false)
+
+    // Send 1x time wink emoji and then validate (now clicked 2 times)
+    cy.chatFeaturesSendEmoji('[title="wink"]', '😉', true).then(() => {
+      // Update our existing expected list variable, the last emoji just 1x used will be removed from the list
+      expectedEmojiFrequentList = '😍😂😉😄😃😀😊😘😚😗'
+
+      //Validate emoji frequently used list has the expected order
+      cy.validateFrequentEmojiItems(expectedEmojiFrequentList)
+    })
+
+    //Clear editable input
+    cy.get('[data-cy=editable-input]').click().clear()
+  })
+
+  it('Chat - Emoji Picker - Frequently used - List length is capped to 10', () => {
+    //Open emoji picker and validate frequent used list length
+    cy.get('[data-cy=send-emoji]').click()
+    cy.get('[data-cy=emoji-frequently-used-list]')
+      .children()
+      .should('have.length', 10)
+
+    //Close Emoji Picker
+    cy.get('body').type('{esc}')
+  })
+
+  it('Chat - Emoji Size - Big Emoji when sending one emoji', () => {
+    //Send a message with one emoji
+    cy.chatFeaturesSendEmoji('[title="joy"]', '😂', true)
+
+    //Validate chat message has class bigmoji
+    cy.get('[data-cy=chat-message]')
+      .last()
+      .scrollIntoView()
+      .should('have.text', '😂')
+      .and('have.class', 'bigmoji')
+  })
+
+  it('Chat - Emoji Size - Big Emoji when sending more than one emoji', () => {
+    //Send a message with three emojis
+    cy.chatFeaturesSendEmoji('[title="heart_eyes"]', '😍', false)
+    cy.chatFeaturesSendEmoji('[title="joy"]', '😂', false)
+    cy.chatFeaturesSendEmoji('[title="wink"]', '😉', true)
+
+    //Validate chat message has class bigmoji
+    cy.get('[data-cy=chat-message]')
+      .last()
+      .scrollIntoView()
+      .should('have.text', '😍😂😉')
+      .and('have.class', 'bigmoji')
+  })
+
+  it('Chat - Emoji Size - Small Emoji when sending emoji with text', () => {
+    //Send a message with one character and one emoji
+    cy.get('[data-cy=editable-input]').trigger('input').type('a')
+    cy.chatFeaturesSendEmoji('[title="wink"]', '😉', true)
+
+    //Validate chat message does not have class bigmoji
+    cy.get('[data-cy=chat-message]')
+      .last()
+      .scrollIntoView()
+      .should('have.text', 'a😉')
+      .and('not.have.class', 'bigmoji')
   })
 })

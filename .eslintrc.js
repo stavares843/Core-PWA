@@ -3,6 +3,7 @@ module.exports = {
   env: {
     browser: true,
     node: true,
+    'jest/globals': true,
   },
   extends: [
     '@nuxtjs/eslint-config-typescript',
@@ -10,10 +11,22 @@ module.exports = {
     // 'plugin:vue/vue3-recommended',
     'plugin:prettier/recommended',
   ],
-  ignorePatterns: ['/cypress/*', 'package.json', '/iridium/*', '/dist/*'],
-  plugins: [],
-  // add your custom rules here
+  ignorePatterns: [
+    '/cypress/*',
+    'package.json',
+    '/linked-iridium/*',
+    '/dist/*',
+    '/android/*',
+    '/iOS/*',
+    '/src-tauri/*',
+  ],
+  plugins: ['jest'],
   rules: {
+    'jest/no-disabled-tests': 'warn',
+    'jest/no-focused-tests': 'error',
+    'jest/no-identical-title': 'error',
+    'jest/prefer-to-have-length': 'warn',
+    'jest/valid-expect': 'error',
     'vue/script-setup-uses-vars': 0,
     'vue/multi-word-component-names': 0,
     'import/named': 0,

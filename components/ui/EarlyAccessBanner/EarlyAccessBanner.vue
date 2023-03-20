@@ -1,17 +1,17 @@
 <template>
   <UiBanner>
-    <template #icon><package-icon size="1x" /></template>
-    <template #header>{{ $t('ui.early_access') }}</template>
+    <template #header>{{ $t('pages.unlock.browser_warning_header') }}</template>
     <template #content>
-      {{ $t('ui.early_access_message') }}
-      <a
-        :href="$config.feedbackUrl"
-        class="banner-link"
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        {{ $config.feedbackUrl }}
-      </a>
+      {{ $t('pages.unlock.browser_warning_content') }}
+      {{ $t('pages.unlock.browser_warning_content2') }}
+      <p>
+        <a
+          :href="$t('pages.unlock.browser_warning_link')"
+          class="link"
+          target="_blank"
+          >Blog Post
+        </a>
+      </p>
     </template>
   </UiBanner>
 </template>
@@ -24,15 +24,15 @@ import UiBanner from '~/components/ui/Banner/Banner.vue'
 export default defineComponent({
   name: 'EarlyAccessBanner',
   components: {
-    PackageIcon,
     UiBanner,
   },
 })
 </script>
 
 <style lang="less" scoped>
-.banner-link {
+.link {
   text-decoration-color: #feca5770;
+  text-decoration: underline;
   &:extend(.color-warning);
 }
 </style>

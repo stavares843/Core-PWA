@@ -33,7 +33,7 @@ export type ConversationMessageType =
 export type ConversationMessage = {
   id: string
   conversationId: string
-  from: string
+  from: IridiumPeerIdentifier
   type: ConversationMessageType
   at: number
   body?: string
@@ -77,9 +77,11 @@ export type MessageEdit = MessageEditPayload & {
   lastEditedAt: number
 }
 
+export type ConversationType = 'direct' | 'group'
+
 export type Conversation = {
   id: string
-  type: 'direct' | 'group'
+  type: ConversationType
   name?: string
   participants: string[]
   createdAt: number
@@ -98,7 +100,11 @@ export const ChatError = {
   MESSAGE_NOT_SENT: 'errors.chat.message_not_sent',
 }
 
-export type ConversationEventType = 'create' | 'add_member' | 'remove_member'
+export type ConversationEventType =
+  | 'create'
+  | 'add_member'
+  | 'remove_member'
+  | 'added_to_group'
 
 export type IridiumConversationEvent = {
   id: string

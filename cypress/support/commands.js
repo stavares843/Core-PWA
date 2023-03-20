@@ -30,26 +30,20 @@ for (const command of [
 
 //Commands to retry visiting root page when previous PIN data is not cleared correctly
 
-Cypress.Commands.add('visitRootPage', (isMobile = false) => {
+Cypress.Commands.add('visitRootPage', () => {
   //Clear localstorage, cookies, sessionstorage and indexedDB before starting
   cy.clearLocalStorage()
   cy.clearCookies()
   cy.window().then((win) => {
     win.sessionStorage.clear()
   })
-  cy.window().then((win) => {
-    win.indexedDB.databases().then((r) => {
-      for (var i = 0; i < r.length; i++) win.indexedDB.deleteDatabase(r[i].name)
-    })
-  })
 
-  //Only if viewport is mobile, then pass this specific window setup
-  if (isMobile === true) {
-    // Pass user agent with data for a mobile device
-    cy.on('window:before:load', (win) => {
-      Object.defineProperty(win.navigator, 'userAgent', {
-        value:
-          'Mozilla/5.0 (iPhone; CPU iPhone OS 11_0 like Mac OS X) AppleWebKit/604.1.38 (KHTML, like Gecko) Version/11.0 Mobile/15A372 Safari/604.1',
+  //Clear indexed DB if browser is chrome
+  if (Cypress.isBrowser('!firefox')) {
+    cy.window().then((win) => {
+      win.indexedDB.databases().then((r) => {
+        for (var i = 0; i < r.length; i++)
+          win.indexedDB.deleteDatabase(r[i].name)
       })
     })
   }
@@ -61,42 +55,39 @@ Cypress.Commands.add('visitRootPage', (isMobile = false) => {
 
 //Create Account Commands
 
-Cypress.Commands.add(
-  'createAccount',
-  (pin, username, isMobile = false, savePin = false) => {
-    cy.visitRootPage(isMobile)
-    cy.url().should('contain', '#/auth/unlock')
-    cy.get('[data-cy=input-group]')
-      .should('be.visible')
-      .trigger('input')
-      .type(pin, { log: false }, { force: true })
-    if (savePin === true) {
-      cy.get('.switch-button').click().should('have.class', 'enabled')
-    } else {
-      cy.get('.switch-button').should('not.have.class', 'enabled')
-    }
-    cy.get('[data-cy=submit-input]').click()
-    cy.get('[data-cy=create-account-button]').click()
-    cy.get('.font-heading').should('contain', 'Recovery Seed')
-    cy.contains('I Saved It').click()
-    cy.validateUserInputIsDisplayed()
-    cy.get('[data-cy=username-input]')
-      .should('be.visible')
-      .trigger('input')
-      .type(username)
-    cy.get('[data-cy=status-input]')
-      .should('be.visible')
-      .trigger('input')
-      .type('testing')
-    cy.get('[data-cy=sign-in-button]').click()
-    cy.welcomeModal(username)
-  },
-)
+Cypress.Commands.add('createAccount', (pin, username, savePin = false) => {
+  cy.visitRootPage()
+  cy.url().should('contain', '#/auth/unlock')
+  cy.get('[data-cy=input-group]')
+    .should('be.visible')
+    .trigger('input')
+    .type(pin, { log: false }, { force: true })
+  if (savePin === true) {
+    cy.get('.switch-button').click().should('have.class', 'enabled')
+  } else {
+    cy.get('.switch-button').should('not.have.class', 'enabled')
+  }
+  cy.get('[data-cy=submit-input]').click()
+  cy.get('[data-cy=create-account-button]').click()
+  cy.get('.font-heading').should('contain', 'Recovery Seed')
+  cy.contains('I Saved It').click()
+  cy.validateUserInputIsDisplayed()
+  cy.get('[data-cy=username-input]')
+    .should('be.visible')
+    .trigger('input')
+    .type(username)
+  cy.get('[data-cy=status-input]')
+    .should('be.visible')
+    .trigger('input')
+    .type('testing')
+  cy.get('[data-cy=sign-in-button]').click()
+  cy.welcomeModal(username)
+})
 
 Cypress.Commands.add(
   'createAccountPINscreen',
-  (pin, savePin = false, snapshot = false, isMobile = false) => {
-    cy.visitRootPage(isMobile)
+  (pin, savePin = false, snapshot = false) => {
+    cy.visitRootPage()
     cy.url().should('contain', '#/auth/unlock')
     if (snapshot === true) {
       cy.snapshotTestGet(
@@ -153,50 +144,6 @@ Cypress.Commands.add('createAccountSubmit', () => {
   cy.get('[data-cy=sign-in-button]').should('be.visible').click()
 })
 
-Cypress.Commands.add(
-  'privacyToggleClick',
-  (switchText, expectedValue = true) => {
-    cy.contains(switchText)
-      .scrollIntoView()
-      .parent()
-      .find('[data-cy=switch-button]')
-      .then(($btn) => {
-        if (expectedValue === true) {
-          if (!$btn.hasClass('enabled')) {
-            cy.wrap($btn).click().should('have.class', 'enabled')
-          } else {
-            cy.wrap($btn).should('have.class', 'enabled')
-          }
-        } else {
-          if (!$btn.hasClass('locked')) {
-            if ($btn.hasClass('enabled')) {
-              cy.wrap($btn).click().should('not.have.class', 'enabled')
-            } else {
-              cy.wrap($btn).should('not.have.class', 'enabled')
-            }
-          }
-        }
-      })
-  },
-)
-
-Cypress.Commands.add(
-  'privacyToggleValidateValue',
-  (switchText, expectedValue = true) => {
-    cy.contains(switchText)
-      .scrollIntoView()
-      .parent()
-      .find('[data-cy=switch-button]')
-      .then(($btn) => {
-        if (expectedValue === true) {
-          cy.wrap($btn, { timeout: 30000 }).should('have.class', 'enabled')
-        } else {
-          cy.wrap($btn, { timeout: 30000 }).should('not.have.class', 'enabled')
-        }
-      })
-  },
-)
-
 Cypress.Commands.add('welcomeModal', (username) => {
   cy.get('.modal-dialog', { timeout: 30000 }).should('exist')
   cy.contains('Welcome, ' + username + '!').should('exist')
@@ -210,17 +157,23 @@ Cypress.Commands.add('welcomeModal', (username) => {
 //Import Account Commands
 
 Cypress.Commands.add('loginWithLocalStorage', (username) => {
-  //Clear localstorage, cookies, sessionstorage and indexedDB before starting
+  //Execute the following steps before starting
+  //Clear localstorage
   cy.clearLocalStorage()
+
+  //Clear cookies
   cy.clearCookies()
-  cy.window().then((win) => {
-    win.sessionStorage.clear()
-  })
-  cy.window().then((win) => {
-    win.indexedDB.databases().then((r) => {
-      for (var i = 0; i < r.length; i++) win.indexedDB.deleteDatabase(r[i].name)
+
+  //Clear Session Storage and IndexedDB if test is executed on Chrome
+  if (Cypress.browser.name === 'chrome') {
+    cy.window().then((win) => {
+      win.sessionStorage.clear()
+      win.indexedDB.databases().then((r) => {
+        for (var i = 0; i < r.length; i++)
+          win.indexedDB.deleteDatabase(r[i].name)
+      })
     })
-  })
+  }
 
   //Restore profile passed for localstorage
   cy.restoreLocalStorage(username)
@@ -232,34 +185,31 @@ Cypress.Commands.add('loginWithLocalStorage', (username) => {
   cy.validateChatPageIsLoaded()
 })
 
-Cypress.Commands.add(
-  'importAccount',
-  (pin, recoverySeed, isMobile = false, savePin = false) => {
-    cy.visitRootPage(isMobile)
-    cy.url().should('contain', '#/auth/unlock')
-    cy.get('[data-cy=add-input]')
-      .should('be.visible')
-      .trigger('input')
-      .type(pin, { log: false }, { force: true })
-    if (savePin === true) {
-      cy.get('[data-cy=switch-button]').click().should('have.class', 'enabled')
-    } else {
-      cy.get('[data-cy=switch-button]').should('not.have.class', 'enabled')
-    }
-    cy.get('[data-cy=submit-input]').click()
-    cy.get('[data-cy=import-account-button]', { timeout: 60000 }).click()
-    cy.get('[data-cy=add-passphrase]')
-      .should('be.visible')
-      .trigger('input')
-      .type(recoverySeed, { log: false }, { force: true })
-    cy.contains('Recover Account').click()
-  },
-)
+Cypress.Commands.add('importAccount', (pin, recoverySeed, savePin = false) => {
+  cy.visitRootPage()
+  cy.url().should('contain', '#/auth/unlock')
+  cy.get('[data-cy=add-input]')
+    .should('be.visible')
+    .trigger('input')
+    .type(pin, { log: false }, { force: true })
+  if (savePin === true) {
+    cy.get('[data-cy=switch-button]').click().should('have.class', 'enabled')
+  } else {
+    cy.get('[data-cy=switch-button]').should('not.have.class', 'enabled')
+  }
+  cy.get('[data-cy=submit-input]').click()
+  cy.get('[data-cy=import-account-button]', { timeout: 60000 }).click()
+  cy.get('[data-cy=add-passphrase]')
+    .should('be.visible')
+    .trigger('input')
+    .type(recoverySeed, { log: false }, { force: true })
+  cy.contains('Recover Account').click()
+})
 
 Cypress.Commands.add(
   'importAccountPINscreen',
-  (pin, savePin = false, snapshot = false, isMobile = false) => {
-    cy.visitRootPage(isMobile)
+  (pin, savePin = false, snapshot = false) => {
+    cy.visitRootPage()
     cy.url().should('contain', '#/auth/unlock')
     if (snapshot === true) {
       cy.snapshotTestGet('.subtitle', 'Create Account Pin')
@@ -300,8 +250,12 @@ Cypress.Commands.add('importAccountEnterPassphrase', (userPassphrase) => {
 
 Cypress.Commands.add('chatFeaturesProfileName', () => {
   // clicks on user name
-  cy.get('[data-cy=user-name]').should('be.visible').click()
-  cy.wait(1000)
+  cy.get('[data-cy=user-name]')
+    .should('be.visible')
+    .click()
+    .then(() => {
+      cy.contains('ATTN: Copied to clipboard.').should('be.visible')
+    })
 })
 
 Cypress.Commands.add('copyUserIDFromProfile', () => {
@@ -361,14 +315,44 @@ Cypress.Commands.add(
   },
 )
 
-Cypress.Commands.add('chatFeaturesSendEmoji', (emojiLocator, emojiValue) => {
+Cypress.Commands.add(
+  'chatFeaturesSendEmoji',
+  (emojiLocator, emojiValue, sendMessage = true) => {
+    cy.get('[data-cy=send-emoji]').click()
+    cy.get(emojiLocator).click() // sending emoji
+
+    // Only if sendMessage is true, then send message and assert it appears on chat
+    if (sendMessage) {
+      cy.get('[data-cy=send-message]').click() //sending emoji message
+      cy.contains(emojiValue)
+        .last()
+        .scrollIntoView({ timeout: 20000 })
+        .should('exist')
+    }
+  },
+)
+
+Cypress.Commands.add('validateFrequentEmojiItems', (expectedEmojiList) => {
+  let actualEmojiList = ''
+
+  //Open Emoji Picker
   cy.get('[data-cy=send-emoji]').click()
-  cy.get(emojiLocator).click() // sending emoji
-  cy.get('[data-cy=send-message]').click() //sending emoji message
-  cy.contains(emojiValue)
-    .last()
-    .scrollIntoView({ timeout: 20000 })
-    .should('exist')
+
+  //Validate Frequent Emoji List
+  cy.get('[data-cy=emoji-frequently-used-list]')
+    .find('[data-cy=emoji-frequently-used-item]')
+    .should('have.length', 10)
+    .each(($emoji) => {
+      actualEmojiList += $emoji.text().trim()
+    })
+    .then(() => {
+      cy.log('actual emoji list is: ' + actualEmojiList)
+      cy.log('expected emoji list is: ' + expectedEmojiList)
+      expect(actualEmojiList).to.eq(expectedEmojiList)
+    })
+
+  //Close Emoji Picker
+  cy.get('body').type('{esc}')
 })
 
 Cypress.Commands.add(
@@ -420,6 +404,28 @@ Cypress.Commands.add('validateCharlimit', (text, error) => {
         cy.get('[data-cy=chatbar-wrap]').should('not.have.class', 'is-error')
       }
     })
+})
+
+Cypress.Commands.add('validateActiveGlyphsEmojiPicker', (active = 'emoji') => {
+  if (active === 'emoji') {
+    cy.get('[data-cy=emoji-picker]').should('be.visible')
+    cy.get('[data-cy=glyphs-picker]').should('not.exist')
+    cy.get('[data-cy=glyphs-emoji-active]')
+      .find('span')
+      .should('contain', 'Emoji')
+    cy.get('[data-cy=glyphs-emoji-inactive]')
+      .find('span')
+      .should('contain', 'Glyphs')
+  } else if (active === 'glyphs') {
+    cy.get('[data-cy=glyphs-picker]').should('be.visible')
+    cy.get('[data-cy=emoji-picker]').should('not.exist')
+    cy.get('[data-cy=glyphs-emoji-active]')
+      .find('span')
+      .should('contain', 'Glyphs')
+    cy.get('[data-cy=glyphs-emoji-inactive]')
+      .find('span')
+      .should('contain', 'Emoji')
+  }
 })
 
 // Chat - Replies Commands
@@ -553,15 +559,11 @@ Cypress.Commands.add('clickOutside', () => {
 
 // Chat - Page Load Commands
 
-Cypress.Commands.add('validateChatPageIsLoaded', (isMobile = false) => {
-  if (isMobile === false) {
-    cy.get('[data-cy=user-name]', { timeout: 30000 }).should('exist')
-  } else if (isMobile === true) {
-    cy.get('#mobile-nav', { timeout: 30000 }).should('exist')
-  }
+Cypress.Commands.add('validateChatPageIsLoaded', () => {
+  cy.get('[data-cy=user-name]', { timeout: 30000 }).should('exist')
 })
 
-Cypress.Commands.add('goToConversation', (user) => {
+Cypress.Commands.add('goToConversation', (user, isMobile = false) => {
   //If sidebar is hidden, click on hamburger menu
   cy.get('#app').then(($app) => {
     if ($app.hasClass('hide-sidebars')) {
@@ -574,21 +576,10 @@ Cypress.Commands.add('goToConversation', (user) => {
     .contains(user)
     .click()
 
-  //Wait until chat page is loaded
-  cy.get('#conversation-container', { timeout: 30000 }).should('exist')
-})
-
-Cypress.Commands.add('goToNewChat', () => {
-  //If sidebar is hidden, click on hamburger menu
-  cy.get('#app').then(($app) => {
-    if ($app.hasClass('hide-sidebars')) {
-      cy.get('[data-cy=hamburger-button]').click()
-    }
-  })
-
-  //Go to sidebar friends button and then click on send message button to begin conversation
-  cy.get('[data-cy=sidebar-friends]').click()
-  cy.get('[data-cy=friend-confirm-button]').click()
+  // If mobile viewport is passed, then click on hamburger button to display conversation
+  if (isMobile === true) {
+    cy.get('[data-cy=hamburger-button]').click()
+  }
 
   //Wait until chat page is loaded
   cy.get('#conversation-container', { timeout: 30000 }).should('exist')
@@ -658,15 +649,9 @@ Cypress.Commands.add('validateComingSoonModal', () => {
 })
 
 Cypress.Commands.add('validateURLComingSoonModal', () => {
-  cy.window().then((win) => {
-    cy.stub(win, 'open').as('open')
-  })
-  cy.contains('Keep Me Posted').click()
-  cy.get('@open').should(
-    'have.been.calledOnceWithExactly',
-    'https://twitter.com/satellite_im',
-    '_blank',
-  )
+  cy.get('[data-cy=btn-call-to-action]')
+    .should('have.attr', 'href', 'https://twitter.com/satellite_im')
+    .should('have.attr', 'target', '_blank')
 })
 
 Cypress.Commands.add('validateGlyphsModal', () => {
@@ -777,37 +762,63 @@ Cypress.Commands.add('navigateThroughSearchResults', () => {
 
 Cypress.Commands.add('openFilesScreen', () => {
   cy.get('[data-cy=sidebar-files]').click()
-  cy.get('[data-cy=files-screen]', { timeout: 60000 }).should('exist')
+  cy.get('[data-cy=files-screen]').should('be.visible')
 })
 
-Cypress.Commands.add('renameFileOrFolder', (newName, type = 'folder') => {
+Cypress.Commands.add('renameFileOrFolder', (existingName, newName) => {
   //Click on list view
   cy.get('[data-cy=files-view-list]').click()
   cy.get('[data-cy=files-table]').should('be.visible')
-  //Assert on file or folder icon depending on parameters
-  if (type === 'file') {
-    cy.get('[data-cy=file-icon]').first().as('itemLocator')
-  } else {
-    cy.get('[data-cy=folder-icon]').first().as('itemLocator')
-  }
-  //Get the file/folder with same name from parameters and click on options
-  cy.get('@itemLocator')
-    .parents('[data-cy=files-item]')
-    .find('[data-cy=file-item-options]')
-    .click()
 
-  //Click on Rename from Context menu
-  cy.get('[data-cy=context-menu]').children().contains('Rename').click()
+  //Find the file or folder to rename by looking for its existing name
+  cy.get('[data-cy=file-item-name]')
+    .contains(existingName)
+    .parents('[data-cy=files-item]')
+    .as('itemLocator')
+
+  //Get the file/folder with same name, right click on it and select Rename
+  cy.selectContextMenuOption('@itemLocator', 'Rename')
 
   //Change name from file or folder and submit
   cy.get('[data-cy=files-rename]')
     .should('exist')
     .find('[data-cy=input-group]')
+    .trigger('input')
     .type(newName)
   cy.get('[data-cy=files-rename]').find('[data-cy=submit-input]').click()
+  cy.closeModal('[data-cy=files-rename]')
 
   //Assert that file or folder name was changed
-  cy.contains(newName, { timeout: 30000 }).should('be.visible')
+  cy.get('[data-cy=file-item-name]').contains(newName).should('be.visible')
+})
+
+Cypress.Commands.add('filesSectionUploadFile', (imagePath, filename) => {
+  cy.get('[data-cy=files-upload-hidden-input]').selectFile(imagePath, {
+    force: true,
+  })
+  cy.get('[data-cy=file-upload-status]')
+    .should('be.visible')
+    .and('contain', 'Uploading ' + filename)
+  cy.get('[data-cy=file-item-name]').contains(filename).should('be.visible')
+})
+
+Cypress.Commands.add('filesSectionCreateFolder', (folderName) => {
+  cy.get('[data-cy=files-folder-name]')
+    .find('[data-cy=input-group]')
+    .trigger('input')
+    .type(folderName)
+  cy.get('[data-cy=files-folder-name]').find('[data-cy=submit-input]').click()
+  cy.get('[data-cy=file-item-name]').contains(folderName).should('be.visible')
+})
+
+Cypress.Commands.add('consentFileScanning', () => {
+  cy.get('[data-cy=confirmation-modal]')
+    .find('[data-cy=confirmation-modal-header]')
+    .should('have.text', 'Consent to File Scanning')
+    .and('be.visible')
+  cy.get('[data-cy=confirmation-modal]')
+    .find('[data-cy=confirm-button]')
+    .click()
 })
 
 // Chat - Markdown Commands
@@ -917,12 +928,134 @@ Cypress.Commands.add('openSettingsMenuOption', (option) => {
   cy.get('.menu-list').contains(option).click()
 })
 
+Cypress.Commands.add(
+  'privacyToggleValidateValue',
+  (switchText, expectedValue = true) => {
+    cy.contains(switchText)
+      .scrollIntoView()
+      .parents('[data-cy=settings-unit]')
+      .find('[data-cy=switch-button]')
+      .then(($btn) => {
+        if (expectedValue === true) {
+          cy.wrap($btn, { timeout: 30000 }).should('have.class', 'enabled')
+        } else {
+          cy.wrap($btn, { timeout: 30000 }).should('not.have.class', 'enabled')
+        }
+      })
+  },
+)
+
+Cypress.Commands.add(
+  'privacyToggleSwitchAll',
+  (settingsPage, expectedValue) => {
+    // Navigate through switches and click if required
+    cy.get('h2')
+      .contains(settingsPage)
+      .parents('[data-cy=settings-page]')
+      .find('[data-cy=switch-button]')
+      .should('not.have.class', 'locked')
+      .each(($btn) => {
+        if (expectedValue === 'enabled' && !$btn.hasClass('enabled')) {
+          cy.wrap($btn).click()
+        } else if (expectedValue === 'disabled' && $btn.hasClass('enabled')) {
+          cy.wrap($btn).click()
+        }
+      })
+  },
+)
+
+Cypress.Commands.add(
+  'privacyToggleValidateAll',
+  (settingsPage, expectedValue) => {
+    // Validate toggle values are correct
+    cy.get('h2')
+      .contains(settingsPage)
+      .parents('[data-cy=settings-page]')
+      .find('[data-cy=switch-button]')
+      .should('not.have.class', 'locked')
+      .each(($btn) => {
+        if (expectedValue === 'enabled') {
+          cy.wrap($btn).should('have.class', 'enabled')
+        } else if (expectedValue === 'disabled') {
+          cy.wrap($btn).should('not.have.class', 'enabled')
+        }
+      })
+  },
+)
+
+Cypress.Commands.add('validateAppTheme', (themeName = 'Default') => {
+  let expectedClass
+  if (themeName === 'Default') {
+    expectedClass = 'theme-default'
+  } else if (themeName === 'Moonless Night') {
+    expectedClass = 'theme-moonlessNight'
+  }
+  cy.get('#app').should('have.class', expectedClass)
+  cy.get('[data-cy=settings-color-theme-selector]')
+    .find('[data-cy=list-container-selected]')
+    .should('contain', themeName)
+})
+
+Cypress.Commands.add('validateAppFlair', (flairName = 'Satellite') => {
+  let expectedRgb
+  if (flairName === 'Satellite') {
+    expectedRgb = 'rgb(39, 97, 253)'
+  } else if (flairName === 'Lime') {
+    expectedRgb = 'rgb(163, 203, 56)'
+  }
+  cy.get('body').should('have.css', 'caret-color', expectedRgb)
+  cy.get('[data-cy=settings-flair-selector]')
+    .find('[data-cy=list-container-selected]')
+    .should('contain', flairName)
+})
+
+Cypress.Commands.add('validateListOptions', (option, expectedList) => {
+  // Determine the selector to be assigned to the alias based on the option to validate
+  if (option === 'theme') {
+    cy.get('[data-cy=settings-color-theme-selector]').as('option')
+  } else if (option === 'flair') {
+    cy.get('[data-cy=settings-flair-selector]').as('option')
+  }
+
+  //Click on the option to display the list
+  cy.get('@option').find('[data-cy=list-container-button]').click()
+
+  //Validate the options displayed in the list
+  cy.get('@option')
+    .find('[data-cy=list-value]')
+    .should('have.length', expectedList.length)
+    .each(($option, $index, $list) => {
+      expect($option.text().trim()).to.be.eq(expectedList[$index])
+    })
+})
+
+Cypress.Commands.add('selectThemeOrFlair', (option, value) => {
+  // Determine the selector to be assigned to the alias based on the option to validate
+  if (option === 'theme') {
+    cy.get('[data-cy=settings-color-theme-selector]').as('option')
+  } else if (option === 'flair') {
+    cy.get('[data-cy=settings-flair-selector]').as('option')
+  }
+  // Click on "Flair" and change the selected value to "Lime"
+  cy.get('@option').find('[data-cy=list-value]').contains(value).click()
+})
+
 // LocalStorage Validations
 
-Cypress.Commands.add('validatePassphraseLocalStorage', () => {
+Cypress.Commands.add('validatePopulatedLocalStorage', (username = 'qa123') => {
   cy.getLocalStorage('Satellite-Store').then((value) => {
     let valueObject = JSON.parse(value)
-    expect(valueObject.accounts.phrase).to.eq('')
+    expect(valueObject.accounts.encryptedPhrase).not.to.be.eq('')
+    expect(valueObject.accounts.details.name).to.eq(username)
+    expect(valueObject.accounts.pinHash).not.to.be.eq('')
+  })
+})
+
+Cypress.Commands.add('validateEmptyLocalStorage', () => {
+  cy.getLocalStorage('Satellite-Store').then((value) => {
+    let valueObject = JSON.parse(value)
+    expect(valueObject.accounts.encryptedPhrase).to.be.eq('')
+    expect(valueObject.accounts.pinHash).to.be.eq('')
   })
 })
 
@@ -1005,12 +1138,14 @@ Cypress.Commands.add(
   },
 )
 
-Cypress.Commands.add('validateRequestsBadge', (pendingReqs = '1') => {
-  cy.get('[data-cy=tab-element]')
-    .contains('Requests')
-    .find('[data-cy=tab-badge]')
-    .should('contain', pendingReqs)
-})
+Cypress.Commands.add(
+  'validateRequestsBadge',
+  (pendingReqs = '1', customTimeout = 30000) => {
+    cy.get('[data-cy=sidebar-friends]')
+      .find('.tag', { timeout: customTimeout })
+      .should('contain', pendingReqs)
+  },
+)
 
 Cypress.Commands.add('goToFriendsPage', (page) => {
   cy.get('[data-cy=sidebar-friends]').click()

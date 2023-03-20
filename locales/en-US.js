@@ -15,13 +15,17 @@ export default {
     uploading: 'Uploading...',
     edit: 'edit',
     save: 'save',
+    chat: 'Chat',
+    files: 'Files',
+    friends: 'Friends',
+    settings: 'Settings',
   },
   ui: {
     talk: 'Speak Freely...',
     close: 'Close',
     cancel: 'Cancel',
     clear_all: 'Clear All',
-    search: 'Search',
+    search: 'Search...',
     home: 'Home',
     peer_not_active: 'Please wait while peer connects...',
     chat_not_ready: 'Please wait while connecting...',
@@ -108,6 +112,7 @@ export default {
     group_join_notice: {
       added: 'added',
       to_group: 'to the group.',
+      you: 'you',
     },
     group_leave_notice: 'left the group.',
     call_incoming: '{name} started a call.',
@@ -162,6 +167,9 @@ export default {
       busy_sub: 'You will not receive notifications',
       away: 'Away',
       offline: 'Offline',
+    },
+    quick_commands: {
+      title: 'Lock App',
     },
   },
   files: {
@@ -250,9 +258,13 @@ export default {
       store_pin: 'Store Password? (Less Secure)',
       delete_account_label: 'Not you? Create or import an account',
       generate_random_user: 'Generate a Random User (DEV)',
-      browser_warning_header: 'Satellite is optimized for Chromium browsers',
+      browser_warning_header: 'Satellite Core will become Uplink!',
       browser_warning_content:
-        'You may experience UI and functional issues. We will optimize for more browsers in the future.',
+        'Core is being replaced with a native version, called Uplink. We are focusing all our efforts there.',
+      browser_warning_content2:
+        'To read more please check out our blog post and discord server.',
+      browser_warning_link:
+        'https://satellite-im.medium.com/prepare-for-uplink-8f1d929d6542',
       confirm_clear_account: 'This will clear your account',
       confirm_clear_account_description:
         'Are you sure you want to clear your account and all data?',
@@ -636,6 +648,7 @@ export default {
         'Select one or more of your friends to chat in groups or one-on-one.',
       no_friends_yet: 'No Friends Yet',
       no_friends_yet_text: "The world doesn't have to be so lonely.",
+      search: 'Searching for',
       enhancers: {
         glyphs: 'Glyphs',
         emoji: 'Emoji',
@@ -655,22 +668,6 @@ export default {
     },
     newMessage: {
       new_message: 'New Message',
-    },
-  },
-  servers: {
-    new_server: 'New Community',
-    create: {
-      heading: 'Create a server',
-      photo_text:
-        'Give your server a face. Choose a memorable photo to show its members.',
-      photo_button: 'Set photo',
-      server_name: 'Enter a server name',
-      server_name_placeholder: 'Server name...',
-      create_server: 'Create server',
-      select_friends: 'Invite your friends to this server',
-      server_name_error: 'Server name must be at least 5 characters.',
-      select_friends_placeholder: 'Search friends...',
-      user_picker_empty: 'No friends found',
     },
   },
   conversation: {
@@ -788,7 +785,6 @@ export default {
     invalid_id: 'Invalid account ID',
     request_sent: 'Friend request successfully sent!',
     friend_requests: 'Friend requests',
-    new_friend_request: 'New friend request from {user}',
     cancel_friend_request: 'Cancel friend request',
     requests: 'Requests',
     received: 'Received',
@@ -903,14 +899,36 @@ export default {
     copy_link: 'Copy Link',
   },
   notifications: {
-    friend_request: {
-      title: 'Friend Request',
-      body: '{name} sent you a friend request!',
+    default: {
+      title: 'New Notification',
+      body: 'You have a new notification',
     },
-    new_message: {
-      title: 'New Message',
-      group_title: '{name} ({server})',
-      body: 'You have a new message from {name}!',
+    new_friend_request: {
+      title: 'New Friend Request',
+      body: '{sender} sent you a friend request!',
+    },
+    new_group_message: {
+      title: '{sender} ({group})',
+    },
+    new_group: {
+      title: 'New Group',
+      body: '{sender} created {group}!',
+    },
+    added_to_group: {
+      title: '{group}',
+      body: '{sender} added you to {group}!',
+    },
+    member_join: {
+      title: 'New Group Member | {count} New Group Members',
+      body: '{addedMember} joined {group}! | {addedMember} and 1 other joined {group}! | {addedMember} and {numOtherNewMembers} others joined {group}!',
+    },
+    member_leave: {
+      title: 'Group Member Left',
+      body: '{removedMember} left {group}',
+    },
+    call: {
+      title: 'Incoming Call',
+      body: 'Incoming call from {sender}',
     },
   },
 }

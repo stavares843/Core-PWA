@@ -13,14 +13,31 @@ import { User } from '~/libraries/Iridium/users/types'
 import iridium from '~/libraries/Iridium/IridiumManager'
 import { conversationMessageIsNotice } from '~/utilities/chat'
 import { onlyHasEmoji } from '~/utilities/onlyHasEmoji'
-import { ChatItem } from '~/components/views/chat/conversation/Conversation.vue'
 import { capacitorHooks } from '~/components/compositions/capacitor'
+import { getTimestamp } from '~/utilities/timestamp'
 
 export default Vue.extend({
   props: {
-    item: {
-      type: Object as PropType<ChatItem>,
+    message: {
+      type: Object as PropType<ConversationMessage>,
       required: true,
+    },
+    replies: {
+      type: Array as PropType<Array<ConversationMessage>>,
+      required: false,
+      default: () => [],
+    },
+    isScrolling: {
+      type: Boolean,
+      default: false,
+    },
+    isFirstUnreadMessage: {
+      type: Boolean,
+      default: false,
+    },
+    isLastCallMessage: {
+      type: Boolean,
+      default: false,
     },
     showHeader: {
       type: Boolean,
@@ -47,15 +64,6 @@ export default Vue.extend({
       ui: (state) => (state as RootState).ui,
       chat: (state) => (state as RootState).chat,
     }),
-    ...mapGetters({
-      getTimestamp: 'settings/getTimestamp',
-    }),
-    message(): ConversationMessage {
-      return this.item.message
-    },
-    replies(): ConversationMessage[] {
-      return this.item.replies
-    },
     conversationId(): Conversation['id'] {
       return this.$route.params.id
     },
@@ -75,7 +83,7 @@ export default Vue.extend({
       )
     },
     timestamp(): string {
-      return this.getTimestamp({ time: this.message.at })
+      return getTimestamp(this.message.at)
     },
     isNotice(): boolean {
       return conversationMessageIsNotice(this.message)
@@ -140,8 +148,8 @@ export default Vue.extend({
     ) as HTMLElement
     const messageEl = this.$refs.container as HTMLElement
     this.intersectionObserver = new IntersectionObserver(
-      (events) => {
-        if (this.item.isFirstUnreadMessage) {
+      () => {
+        if (this.isFirstUnreadMessage) {
           const messageBox = messageEl.getBoundingClientRect()
           const conversationBox = conversationEl.getBoundingClientRect()
           this.$emit('unreadMessage', {
@@ -158,6 +166,19 @@ export default Vue.extend({
       },
     )
     this.intersectionObserver.observe(messageEl)
+
+    if (!this.$refs['message-row']) return
+    Array.from(
+      (this.$refs['message-row'] as HTMLElement).getElementsByClassName(
+        'spoiler-container',
+      ),
+    ).forEach((spoiler) => {
+      spoiler.addEventListener('click', (e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        spoiler.classList.add('spoiler-open')
+      })
+    })
   },
   beforeDestroy() {
     this.intersectionObserver?.disconnect()
@@ -169,12 +190,10 @@ export default Vue.extend({
      * @example v-on:click="showQuickProfile"
      */
     showQuickProfile(e: MouseEvent) {
-      setTimeout(() => {
-        this.$store.commit('ui/setQuickProfile', {
-          user: this.author,
-          position: { x: e.x, y: e.y },
-        })
-      }, 0)
+      this.$store.commit('ui/setQuickProfile', {
+        user: this.author,
+        position: { x: e.x, y: e.y },
+      })
     },
     /**
      * @method copyMessage
@@ -199,15 +218,11 @@ export default Vue.extend({
      * @example
      */
     emojiReaction() {
-      this.$store.commit('ui/settingReaction', {
-        status: true,
+      this.$store.commit('chat/setMessageReaction', {
         conversationId: this.message.conversationId,
         messageId: this.message.id,
       })
-      this.$store.commit('ui/toggleEnhancers', {
-        show: !this.ui.enhancers.show,
-        floating: true,
-      })
+      this.$store.commit('chat/setEnhancersRoute', 'emoji')
     },
     quickReaction(emoji: EmojiUsage) {
       iridium.chat.toggleMessageReaction({

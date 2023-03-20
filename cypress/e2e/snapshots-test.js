@@ -6,14 +6,14 @@ const recoverySeed = dataRecovery.accounts
   .filter((item) => item.description === 'Snap QA')
   .map((item) => item.recoverySeed)
   .toString()
-const randomName = faker.internet.userName(name) // generate random name
+const randomName = faker.internet.password(12, true) // Generate username with 12 characters
 const randomStatus = faker.lorem.word() // generate random status
 
 describe.skip('Snapshots Testing', () => {
   //Skipping snapshots tests because cursor behavior makes tests to fail
   //Import account and snapshot on each screen
   it('Import account - PIN screen', () => {
-    cy.importAccountPINscreen(randomPIN, false, true, false)
+    cy.importAccountPINscreen(randomPIN, false, true)
   })
 
   it('Import account - Create or Import Account Selection screen', () => {
@@ -71,7 +71,7 @@ describe.skip('Snapshots Testing', () => {
     //Click on toggle-sidebar
     cy.get('[data-cy=toggle-sidebar]').click()
     // Go to settings
-    cy.get('[data-cy=settings]', { timeout: 30000 }).click()
+    cy.get('[data-cy=go-to-settings]', { timeout: 30000 }).click()
     cy.snapshotTestContains('Personalize Satellite')
   })
 
@@ -128,7 +128,7 @@ describe.skip('Snapshots Testing', () => {
 
   it('Create Account - PIN screen', () => {
     //Open URL and snapshot
-    cy.createAccountPINscreen(randomPIN, false, true, false)
+    cy.createAccountPINscreen(randomPIN, false, true)
   })
 
   it('Create Account - Create or Import Account Selection screen', () => {
@@ -136,8 +136,7 @@ describe.skip('Snapshots Testing', () => {
     cy.createAccountSecondScreen()
   })
 
-  it.skip('Create Account - User Input Screen', () => {
-    //Skipped because account creation fails due to Solana issues
+  it('Create Account - User Input Screen', () => {
     //Recovery Seed Screen then User Input Snapshot
     cy.createAccountRecoverySeed().then(() => {
       cy.validateUserInputIsDisplayed()

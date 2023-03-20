@@ -1,68 +1,42 @@
-<template src="./Modal.html"></template>
+<template>
+  <div class="modal-container" :class="{ fullscreen }">
+    <div ref="modal" class="modal">
+      <slot />
+      <InteractablesClose v-if="showCloseButton" @click="close" />
+    </div>
+  </div>
+</template>
 
-<script lang="ts">
-import Vue from 'vue'
-import { createFocusTrap, FocusTrap, Options } from 'focus-trap'
+<script setup lang="ts">
+import { ref, Ref } from 'vue'
+import { onClickOutside } from '@vueuse/core'
+import { handleEsc, handleFocusTrap } from '~/components/compositions/events'
 
-export default Vue.extend({
-  props: {
-    title: {
-      type: String,
-      default: '',
-      required: false,
-    },
-    small: {
-      type: Boolean,
-      default: false,
-    },
-    showCloseButton: {
-      type: Boolean,
-      default: true,
-    },
-    fullscreen: {
-      type: Boolean,
-      default: false,
-    },
-  },
-  data: () => ({
-    trap: null as FocusTrap | null,
-  }),
-  beforeDestroy() {
-    this.removeEventListener()
-    this.trap?.deactivate()
-  },
-  mounted() {
-    const modal = this.$refs.modal as HTMLElement
-    const options: Options = {
-      allowOutsideClick: true,
-      escapeDeactivates: false,
-    }
+interface Props {
+  showCloseButton?: boolean
+  fullscreen?: boolean
+}
+interface Emits {
+  (e: 'close'): void
+}
 
-    // next tick for conditionally rendered buttons that aren't ready yet
-    this.$nextTick(() => {
-      this.trap = createFocusTrap(modal, options)
-      this.trap.activate()
-    })
-
-    this.addEventListener()
-  },
-  methods: {
-    close() {
-      this.$emit('close')
-    },
-    handleKeydown(event: KeyboardEvent) {
-      if (event.key === 'Escape') {
-        this.close()
-      }
-    },
-    addEventListener() {
-      document.addEventListener('keydown', this.handleKeydown)
-    },
-    removeEventListener() {
-      document.removeEventListener('keydown', this.handleKeydown)
-    },
-  },
+withDefaults(defineProps<Props>(), {
+  showCloseButton: true,
+  fullscreen: false,
 })
+
+const emit = defineEmits<Emits>()
+
+const modal: Ref<HTMLElement | null> = ref(null)
+
+function close() {
+  emit('close')
+}
+
+onClickOutside(modal, close)
+
+handleEsc(close)
+handleFocusTrap(modal)
 </script>
 
 <style scoped lang="less" src="./Modal.less"></style>

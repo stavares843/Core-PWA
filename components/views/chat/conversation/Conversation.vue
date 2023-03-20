@@ -1,8 +1,7 @@
 <template src="./Conversation.html"></template>
 <script lang="ts">
 import Vue from 'vue'
-import { mapState, mapGetters } from 'vuex'
-import { debounce, throttle } from 'lodash'
+import { mapState } from 'vuex'
 import {
   ChevronDownIcon,
   KeyIcon,
@@ -18,18 +17,25 @@ import {
 } from '~/libraries/Iridium/chat/types'
 import { conversationMessageIsNotice } from '~/utilities/chat'
 import { RootState } from '~/types/store/store'
+import { ScrollerRef } from '~/components/ui/Chat/InfiniteScroll/InfiniteScroll.vue'
+import { getTimestamp } from '~/utilities/timestamp'
 
 export interface ChatItem {
   message: ConversationMessage
   showHeader: boolean
   timeDiff: number
   isNextDay: boolean
-  isFirstUnreadMessage: boolean
   replies: ConversationMessage[]
   isLastCallMessage: boolean
 }
 
-const MESSAGE_PAGE_SIZE = 50
+const MIN_MESSAGE_HEIGHT = 24 // 1.5 rem (reset.css)
+const MULTIPLIER = 50
+const MESSAGE_PAGE_SIZE = Math.max(
+  Math.floor(window.innerHeight / MIN_MESSAGE_HEIGHT / MULTIPLIER) * MULTIPLIER,
+  MULTIPLIER,
+)
+const MESSAGES_WINDOW = MESSAGE_PAGE_SIZE * 4
 
 export default Vue.extend({
   components: {
@@ -42,24 +48,18 @@ export default Vue.extend({
   },
   data() {
     return {
-      numMessages: MESSAGE_PAGE_SIZE,
+      trailingIndex: MESSAGE_PAGE_SIZE * 2,
+      leadingIndex: 0,
       isLoadingMore: false,
       isBlurred: false,
-      resizeContainerObserver: null as ResizeObserver | null,
-      isLockedToBottom: true,
-      firstUnreadMessageElement: null as HTMLElement | null,
-      lastScrolledToUnreadMessageElement: null as HTMLElement | null,
       isUnreadAboveViewport: false,
       isUnreadBelowViewport: false,
-      unreadMarkerMessageId: null as string | null,
+      currentMarkerMessageId: null as string | null,
     }
   },
   computed: {
     ...mapState({
       activeUploadChats: (state) => (state as RootState).chat.activeUploadChats,
-    }),
-    ...mapGetters({
-      getTimestamp: 'settings/getTimestamp',
     }),
     myDid(): string {
       return iridium.id ?? ''
@@ -79,20 +79,12 @@ export default Vue.extend({
     ephemeralMessages(): ConversationMessage[] {
       return iridium.chat.ephemeral.conversations?.[this.conversationId] ?? []
     },
-    hasUnreadMessages(): boolean {
-      const sortedMessages = Object.values(this.conversation.message).sort(
-        (a, b) => a.at - b.at,
-      )
-      const lastMessage = sortedMessages[sortedMessages.length - 1]
-      if (!lastMessage) {
-        return false
-      }
-      return lastMessage.at > this.conversation.lastReadAt
-    },
     chatItems(): ChatItem[] {
-      const messages = this.messages
-        .filter((message) => !message.replyToId)
-        .slice(-this.numMessages)
+      const filtered = this.messages.filter((message) => !message.replyToId)
+      const messages = filtered.slice(
+        Math.max(filtered.length - this.trailingIndex, 0),
+        filtered.length - this.leadingIndex,
+      )
       const items = messages.map((message, index) => {
         const prevMessage = index >= 0 ? messages[index - 1] : undefined
         const isSameAuthor = prevMessage
@@ -108,7 +100,7 @@ export default Vue.extend({
           message.at > lastReadAt &&
           (prevMessage ? prevMessage.at <= lastReadAt : true)
         if (isFirstUnreadMessage) {
-          this.unreadMarkerMessageId = message.id
+          this.currentMarkerMessageId = message.id
         }
         const replies = this.messages.filter(
           (replyMessage) => replyMessage.replyToId === message.id,
@@ -142,61 +134,79 @@ export default Vue.extend({
       return items
     },
     isLastChatItemAuthor(): boolean {
-      const lastItem = this.chatItems[this.chatItems.length - 1]
+      const lastItem = this.messages[this.messages.length - 1]
       if (!lastItem || !iridium.connector) {
         return false
       }
-      return lastItem.message.from === iridium.connector.id
+      return !lastItem.replyToId && lastItem.from === iridium.connector.id
     },
     noMore(): boolean {
       return (
-        this.numMessages >=
+        this.trailingIndex >=
         this.messages.filter((message) => !message.replyToId).length
       )
     },
-    numUnread(): number {
-      const firstUnreadIndex = this.messages.findIndex(
-        (item) => item.id === this.unreadMarkerMessageId,
-      )
-      return this.messages.length - firstUnreadIndex
+    numUnread(): number | null {
+      if (!this.unreadMarkerMessageId) return null
+      const [_, index] = this.getMessageIndexes(this.unreadMarkerMessageId)
+
+      if (index === -1) return null
+      return index + 1
     },
     unreadSince(): string | null {
-      const message = this.chatItems.find(
-        (item) => item.isFirstUnreadMessage,
-      )?.message
-      if (message) {
-        return this.getTimestamp({ time: message.at })
+      const message = this.messages.find(
+        (m) => m.id === this.unreadMarkerMessageId,
+      )
+      if (!message) return null
+
+      return getTimestamp(message.at)
+    },
+    messageWindow(): number {
+      return this.trailingIndex - this.leadingIndex
+    },
+    noLeading(): boolean {
+      return this.leadingIndex === 0
+    },
+    unreadMarkerMessageId(): string {
+      let id = ''
+      const lastReadAt = this.conversation.lastReadAt
+      for (let i = 0; i < this.messages.length; i++) {
+        const message = this.messages[i]
+        const prevMessage = i >= 0 ? this.messages[i - 1] : undefined
+        if (
+          !message.status &&
+          message.at > lastReadAt &&
+          (prevMessage ? prevMessage.at <= lastReadAt : true)
+        ) {
+          id = message.id
+          break
+        }
       }
-      return null
+      return id
     },
   },
   watch: {
-    chatItems(newValue, oldValue) {
-      if (
-        (this.isLastChatItemAuthor || this.isLockedToBottom) &&
-        newValue[newValue.length - 1]?.message.id !==
-          oldValue[oldValue.length - 1]?.message.id
-      ) {
-        this.scrollToBottom()
-      }
+    messages(newValue, oldValue) {
+      const scroller = this.$refs.container as ScrollerRef
+      if (newValue.length !== oldValue.length) {
+        if (this.isLastChatItemAuthor || scroller.isLockedToBottom) {
+          scroller.scrollToBottom()
+        }
 
-      const maxTime = Math.max(...this.messages.map((message) => message.at))
-      if (
-        oldValue[oldValue.length - 1] !== newValue[newValue.length - 1] &&
-        (!maxTime || maxTime > this.conversation.lastReadAt) &&
-        !this.isBlurred &&
-        this.isLockedToBottom
-      ) {
-        const currentTimestamp = this.$dayjs().valueOf()
-        iridium.chat.updateConversationReadAt(
-          this.conversation.id,
-          maxTime || currentTimestamp,
-        )
+        // Fill the available spots
+        if (this.trailingIndex < MESSAGES_WINDOW) {
+          this.trailingIndex++
+        }
+        // If we're full and not at the bottom, keep the message position
+        else if (!scroller.isLockedToBottom) {
+          this.trailingIndex++
+          this.leadingIndex++
+        }
       }
     },
     isLastChatItemAuthor(newValue) {
       if (newValue) {
-        this.unreadMarkerMessageId = null
+        this.currentMarkerMessageId = null
       }
     },
   },
@@ -206,66 +216,29 @@ export default Vue.extend({
 
     // todo - fix type definition, can be undefined on mobile
     if (this.conversationId) {
-      iridium.chat.updateConversationReadAt(this.conversation.id, Date.now())
+      iridium.chat.updateConversationReadAt(this.conversationId, Date.now())
     }
 
     // Set active conversation ID
     iridium.chat.ephemeral.activeConversationId = this.conversationId
-
-    const container = this.$refs.container as HTMLElement
-    const messages = this.$refs.messages as HTMLElement
-    if (!container || !messages) {
-      return
-    }
-
-    this.resizeContainerObserver = new ResizeObserver(() => {
-      if (this.isLockedToBottom) {
-        this.scrollToBottom()
-      }
-    })
-    this.resizeContainerObserver.observe(container)
   },
   beforeDestroy() {
     window.removeEventListener('blur', this.handleBlur)
     window.removeEventListener('focus', this.handleFocus)
-    this.resizeContainerObserver?.disconnect()
 
     // Clear active conversation ID
     iridium.chat.ephemeral.activeConversationId = ''
   },
   methods: {
-    onScroll: debounce(function (this: any) {
-      const container = this.$refs.container as HTMLElement | null
-      if (!container) return
-      this.isLockedToBottom =
-        container.scrollTop + container.clientHeight >=
-        container.scrollHeight - 1
-    }, 100),
-    // Dont trigger this behaviour when dragging the scrollbar
-    onWheelScroll: throttle(function (this: any) {
-      const container = this.$refs.container as HTMLElement | null
-      if (!container) return
-      if (container.scrollTop === 0) {
-        const el = document.querySelector(
-          `[data-id="message-scroll-loader"]`,
-        ) as HTMLElement | null
-
-        if (!el) return
-        el.scrollIntoView(false)
-      }
-    }, 100),
-    scrollToBottom() {
-      this.$nextTick(() => {
-        const container = this.$refs.container as HTMLElement | null
-        if (!container) return
-        container.scrollTop = container.scrollHeight
-      })
-    },
     handleBlur() {
       this.isBlurred = true
     },
     handleFocus() {
       this.isBlurred = false
+      const scroller = this.$refs.container as ScrollerRef
+      if (this.conversationId && scroller.isLockedToBottom) {
+        iridium.chat.updateConversationReadAt(this.conversation.id, Date.now())
+      }
     },
     loadMore() {
       // TODO: we'll want to instead call iridium in this method once paginated
@@ -274,15 +247,14 @@ export default Vue.extend({
       const lastMessage = this.chatItems[0]
       setTimeout(() => {
         this.isLoadingMore = false
-        this.numMessages += MESSAGE_PAGE_SIZE
-        const container = this.$refs.container as HTMLElement | null
-        if (!container) return
+        this.trailingIndex += MESSAGE_PAGE_SIZE
+        const container = (this.$refs.container as ScrollerRef).$el
 
         const currentScrollTop = container.scrollTop
         const currentScrollHeight = container.scrollHeight
-        const lastMessageOffsetTop = this.getMessageOffsetTop(
-          lastMessage.message.id,
-        )
+
+        const top = this.getMessageOffsets(lastMessage.message.id).top
+        const difference = container.scrollTop + container.clientHeight - top
 
         this.$nextTick(() => {
           container.scrollTop =
@@ -291,18 +263,48 @@ export default Vue.extend({
             // in case the user has scrolled in the meanwhile, make up the difference
             currentScrollTop -
             // in case the user has scrolled beyond the loaders, lets reset the scroll position above the lastMessage
-            Math.min(
-              container.scrollTop +
-                container.clientHeight -
-                lastMessageOffsetTop,
-              0,
-            )
+            Math.min(difference, 0)
+
+          if (this.messageWindow > MESSAGES_WINDOW) {
+            // the + (this.messageWindow - MESSAGES_WINDOW) is for compensating eventual "scroll to message"
+            this.leadingIndex +=
+              MESSAGE_PAGE_SIZE + (this.messageWindow - MESSAGES_WINDOW)
+          }
         })
-      }, Math.random() * 1500)
+      }, 250)
+    },
+    loadLess() {
+      this.isLoadingMore = true
+      const firstMessage = this.chatItems[this.chatItems.length - 1]?.message.id
+      setTimeout(() => {
+        const delta =
+          this.trailingIndex - MESSAGES_WINDOW >= MESSAGE_PAGE_SIZE
+            ? MESSAGE_PAGE_SIZE
+            : this.trailingIndex - MESSAGES_WINDOW
+
+        // the + (this.messageWindow - MESSAGES_WINDOW) is for compensating eventual "scroll to message"
+        this.trailingIndex -= delta + (this.messageWindow - MESSAGES_WINDOW)
+        this.isLoadingMore = false
+
+        const container = (this.$refs.container as ScrollerRef).$el
+
+        const currentScrollTop = container.scrollTop
+        const currentScrollHeight = container.scrollHeight
+
+        this.$nextTick(() => {
+          const bottom = this.getMessageOffsets(firstMessage).bottom
+          container.scrollTop =
+            container.scrollHeight -
+            currentScrollHeight +
+            // in case the user has scrolled in the meanwhile, make up the difference
+            currentScrollTop -
+            Math.max(container.scrollTop - bottom, 0)
+
+          this.leadingIndex -= delta
+        })
+      }, 250)
     },
     onUnreadMessage({
-      message,
-      messageEl,
       isAboveViewport,
       isBelowViewport,
     }: {
@@ -311,41 +313,69 @@ export default Vue.extend({
       isAboveViewport: boolean
       isBelowViewport: boolean
     }) {
-      this.firstUnreadMessageElement = messageEl
-      if (this.lastScrolledToUnreadMessageElement === messageEl) {
-        this.isUnreadAboveViewport = false
-        this.isUnreadBelowViewport = false
-        return
-      }
       this.isUnreadAboveViewport = isAboveViewport
       this.isUnreadBelowViewport = isBelowViewport
     },
     scrollUnreadIntoView() {
-      if (!this.firstUnreadMessageElement) {
+      if (!this.unreadMarkerMessageId) return
+
+      const unreadMessage = document.querySelector(
+        `[data-message-id="${this.unreadMarkerMessageId}"]`,
+      ) as HTMLElement
+
+      // If the element is not in the dom lets determine its position
+      if (!unreadMessage) {
+        const [index, reversedIndex] = this.getMessageIndexes(
+          this.unreadMarkerMessageId,
+        )
+
+        // Later this will mean we have to make an async call and retrieve the message from iridium
+        if (index === -1) return
+        const [topIndex] = this.getWindowsIndexes()
+
+        if (index < topIndex) {
+          this.trailingIndex = reversedIndex + 1
+        } else {
+          this.leadingIndex = reversedIndex
+        }
+
+        this.$nextTick(() => {
+          const unreadMessage = document.querySelector(
+            `[data-message-id="${this.unreadMarkerMessageId}"]`,
+          ) as HTMLElement
+
+          this.isUnreadAboveViewport = false
+          this.isUnreadBelowViewport = false
+          this.scrollMessageIntoView(unreadMessage)
+        })
         return
       }
-      const container = this.$refs.container as HTMLElement
-      const offsetTop = this.firstUnreadMessageElement.offsetTop
-      const containerHeight = container.clientHeight
-      const scrollTop = offsetTop - containerHeight / 2
-      this.lastScrolledToUnreadMessageElement = this.firstUnreadMessageElement
+
       this.isUnreadAboveViewport = false
       this.isUnreadBelowViewport = false
+      this.scrollMessageIntoView(unreadMessage)
+    },
+    dismissScrollIndicator() {
+      if (!this.unreadMarkerMessageId) return
+
+      this.isUnreadAboveViewport = false
+      this.isUnreadBelowViewport = false
+      this.currentMarkerMessageId = this.unreadMarkerMessageId
       iridium.chat.updateConversationReadAt(this.conversation.id, Date.now())
+    },
+    scrollMessageIntoView(el: HTMLElement) {
+      const container = (this.$refs.container as ScrollerRef).$el
+      const offsetTop = el.offsetTop
+      const containerHeight = container.clientHeight
+      const scrollTop = offsetTop - containerHeight / 2
 
       container.scrollTo({
         behavior: 'smooth',
         top: scrollTop,
       })
     },
-    dismissScrollIndicator() {
-      this.lastScrolledToUnreadMessageElement = this.firstUnreadMessageElement
-      this.isUnreadAboveViewport = false
-      this.isUnreadBelowViewport = false
-      iridium.chat.updateConversationReadAt(this.conversation.id, Date.now())
-    },
-    getMessageOffsetTop(id: string) {
-      let offsetTop = 0
+    getMessageOffsets(id: string) {
+      const offsets = { top: 0, bottom: 0 }
       const el = document.querySelector(
         `[data-message-id="${id}"]`,
       ) as HTMLElement | null
@@ -355,13 +385,34 @@ export default Vue.extend({
         const currentLastMessage = this.chatItems.find(
           (i) => i.message.id === id,
         )
-        offsetTop = // take the offsetTop from the body only if the currentLastMessage does not have to show the header
+        offsets.top = // take the offsetTop from the body only if the currentLastMessage does not have to show the header
           elBody && !currentLastMessage?.showHeader
             ? elBody.offsetTop
             : el.offsetTop
+
+        offsets.bottom = offsets.top + el.offsetHeight
       }
 
-      return offsetTop
+      return offsets
+    },
+    getMessageIndexes(id: string): [number, number] {
+      const filtered = this.messages.filter((message) => !message.replyToId)
+      const index = filtered.findIndex((item) => item.id === id)
+      if (index === -1) return [-1, -1]
+      return [index, filtered.length - index - 1]
+    },
+    getWindowsIndexes(): [number, number] {
+      const filtered = this.messages.filter((message) => !message.replyToId)
+
+      return [
+        Math.max(filtered.length - this.trailingIndex, 0),
+        filtered.length - this.leadingIndex - 1,
+      ]
+    },
+    onBottomReached() {
+      if (this.conversationId && !this.isBlurred) {
+        iridium.chat.updateConversationReadAt(this.conversation.id, Date.now())
+      }
     },
   },
 })

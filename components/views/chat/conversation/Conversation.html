@@ -1,18 +1,17 @@
 <div class="conversation-wrapper">
   <!-- dont change the 'conversation-container' id -->
-  <div
+  <UiChatInfiniteScroll
     id="conversation-container"
     class="conversation"
     ref="container"
-    @scroll="onScroll"
-    @wheel.passive="onWheelScroll"
-    @touchmove.passive="onWheelScroll"
+    :isLoading="isLoadingMore"
+    :noTrailing="noMore"
+    :noLeading="noLeading"
+    @loadMore="loadMore"
+    @loadLess="loadLess"
+    @bottomReached="onBottomReached"
+    v-slot="{ isScrolling }"
   >
-    <UiChatInfiniteScroll
-      :isLoading="isLoadingMore"
-      :noMore="noMore"
-      @loadMore="loadMore"
-    />
     <div class="messages" ref="messages">
       <template v-if="noMore">
         <UiBanner>
@@ -25,7 +24,7 @@
       </template>
       <UiLoadersMessage
         v-if="!noMore"
-        data-id="message-scroll-loader"
+        data-id="trailing-message-scroll-loader"
         :count="20"
       />
       <template v-for="(item, i) of chatItems">
@@ -34,16 +33,27 @@
           :value="item.message.at.toString()"
         />
         <UiCaretDivider
-          v-if="item.message.id === unreadMarkerMessageId"
+          v-if="item.message.id === currentMarkerMessageId"
           :text="$tc('messaging.new_messages', numUnread)"
         />
         <Message
           :key="item.message.id"
-          :item="item"
+          :message="item.message"
+          :replies="item.replies"
+          :isLastCallMessage="item.isLastCallMessage"
+          :isFirstUnreadMessage="item.isFirstUnreadMessage"
           :showHeader="item.showHeader"
+          :isScrolling="isScrolling"
           @unreadMessage="onUnreadMessage"
         />
       </template>
+      <UiLoadersMessage
+        v-if="!noLeading"
+        ref="leadingLoader"
+        data-id="leading-message-scroll-loader"
+        :count="20"
+      />
+      <UiSpacer v-else :height="16" />
       <div
         v-if="activeUploadChats.includes(conversation?.id)"
         data-cy="file-loader-container"
@@ -56,7 +66,7 @@
         </div>
       </div>
     </div>
-  </div>
+  </UiChatInfiniteScroll>
   <transition name="scroll-indicator">
     <div
       class="scroll-indicator"

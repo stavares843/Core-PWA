@@ -3,7 +3,7 @@
     <InteractablesInput
       v-model="filter"
       class="search"
-      :placeholder="`${$t('ui.search')}...`"
+      :placeholder="$t('ui.search')"
       input-kind="text"
       type="dark"
     />
@@ -49,11 +49,11 @@ export default Vue.extend({
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 0 1rem 1rem;
   overflow-y: auto;
 
   .search {
     margin-bottom: 1rem;
+    padding: 0 16px;
   }
 }
 </style>

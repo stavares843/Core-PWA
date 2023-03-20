@@ -12,7 +12,7 @@
     flex-direction: column;
     gap: @normal-spacing;
     box-shadow: @ui-shadow;
-    max-height: calc(100% - @sidebar-controls-height);
+    min-height: 0;
     &:extend(.round-corners);
     background: @foreground-gradient;
 
@@ -39,11 +39,12 @@
         height: 44px;
         color: @dark;
 
-        &.selected {
+        &[aria-current='page'],
+        &.nuxt-link-active {
           color: @light;
           .background-semitransparent-lighter();
         }
-        &:hover:not(.selected) {
+        &:hover:not(.nuxt-link-active) {
           color: @body;
           .background-semitransparent-lighter();
         }
@@ -75,6 +76,7 @@
   }
 
   .controls {
+    position: relative;
     display: flex;
     flex-direction: column;
     justify-content: space-between;

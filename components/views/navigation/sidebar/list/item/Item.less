@@ -1,5 +1,6 @@
 .wrapper {
   position: relative;
+
   .item {
     height: 64px;
     display: flex;
@@ -11,11 +12,12 @@
     user-select: none;
     outline-offset: -2px;
 
-    &.selected {
+    &[aria-current='page'],
+    &.nuxt-link-active {
       .background-semitransparent-lighter();
     }
 
-    &:hover:not(.selected) {
+    &:hover:not(.nuxt-link-active) {
       .background-semitransparent-light();
     }
   }
@@ -57,6 +59,7 @@
 
   &.is-loading {
     pointer-events: none;
+
     .loader {
       display: flex;
     }

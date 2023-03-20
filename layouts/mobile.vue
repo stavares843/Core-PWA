@@ -17,6 +17,7 @@
 <script lang="ts">
 import Vue from 'vue'
 import { mapState } from 'vuex'
+import useMeta from '~/components/compositions/useMeta'
 import iridium from '~/libraries/Iridium/IridiumManager'
 import { flairs, Flair } from '~/libraries/Iridium/settings/types'
 import 'swiper/css'
@@ -25,6 +26,10 @@ import { Conversation } from '~/libraries/Iridium/chat/types'
 
 export default Vue.extend({
   name: 'Mobile',
+  middleware: ['safearea'],
+  setup() {
+    useMeta()
+  },
   data() {
     return {
       settings: iridium.settings.state,
@@ -53,11 +58,17 @@ export default Vue.extend({
   display: flex;
   height: 100%;
   flex-direction: column;
-  padding-bottom: @mobile-nav-height;
-  transition: padding @animation-speed-long ease;
+  padding-bottom: max(
+    calc(var(--safe-area-inset-bottom) + @mobile-nav-height),
+    var(--keyboard-height, 0px)
+  );
+  padding-top: var(--safe-area-inset-top);
 
   &.hidden-nav {
-    padding-bottom: 0;
+    padding-bottom: max(
+      var(--safe-area-inset-bottom),
+      var(--keyboard-height, 0px)
+    );
   }
 }
 </style>

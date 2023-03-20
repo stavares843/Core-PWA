@@ -10,39 +10,20 @@ export enum GlyphMarketViewStatus {
 }
 
 export enum ModalWindows {
-  NEW_FOLDER = 'newfolder',
-  CREATE_SERVER = 'createServer',
   MARKETPLACE = 'marketplace',
   WALLET = 'wallet',
-  WALLET_MINI = 'walletMini',
-  ERROR = 'error',
   CHANGELOG = 'changelog',
   GLYPH = 'glyph',
   CALL_TO_ACTION = 'callToAction',
   RENAME_FILE = 'renameFile',
   CONSENT_SCAN_CONFIRMATION = 'consentScanConfirmation',
-}
-
-export interface EnhancerInfo {
-  show: boolean
-  floating?: boolean
-  position?: number[]
-  defaultWidth?: string
-  defaultHeight?: string
-  containerWidth?: number
-  route: string
+  ERROR_NETWORK = 'errorNetwork',
 }
 
 export interface EmojiUsage {
   code: string
   count: number
   content: string
-}
-
-export interface RecentGlyph {
-  pack: Glyph
-  url: string
-  count: number
 }
 
 export enum SettingsRoutes {
@@ -77,7 +58,11 @@ export type Position = {
 export interface UIState {
   contextMenuStatus: boolean
   contextMenuValues: ContextMenuItem[]
-  quickProfile?: { user: User; position: Position; showStatusChange?: boolean }
+  quickProfile?: {
+    user: User
+    position: Position
+    isSidebarProfile?: boolean
+  }
   fullProfile?: User
   contextMenuPosition: Position
   settingsRoute: SettingsRoutes
@@ -88,11 +73,6 @@ export interface UIState {
   glyphModalPackId?: string
   chatbarContent: string
   chatbarFocus: boolean
-  enhancers: EnhancerInfo
-  messages: any[]
-  unreadMessage: number
-  showOlderMessagesInfo: boolean
-  settingReaction: object
   hoveredGlyphInfo: object | undefined
   glyphMarketplaceView: object
   editMessage: {
@@ -101,7 +81,6 @@ export interface UIState {
     payload: string
   }
   mostEmojiUsed: EmojiUsage[]
-  recentGlyphs: RecentGlyph[]
   chatImageOverlay?: MessageAttachment & { dataURL: string }
   isMobileNavVisible: boolean
   callHeight: string

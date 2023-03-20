@@ -121,21 +121,15 @@ export default class NotificationManager extends Emitter<Notification> {
    * @method sendNotification
    */
   async sendNotification(notification: Exclude<Notification, 'id'>) {
-    const { onNotificationClick, ...iridiumNotification } = notification
+    // Removes onNotification from the payload as it can't be saved to iridium
 
     if (!iridium.connector) return
-    const notificationID = await iridium.connector.store(
-      iridiumNotification,
-      {},
-    )
+    const notificationID = await iridium.connector.store(notification, {})
     if (!notificationID) {
       throw new Error(NotificationsError.NOTIFICATION_NOT_SENT)
     }
     notification.id = notificationID.toString()
-    this.state.notifications = [
-      ...this.state.notifications,
-      iridiumNotification,
-    ]
+    this.state.notifications = [...this.state.notifications, notification]
     await this.save()
 
     const browserNotification = new Notifications()

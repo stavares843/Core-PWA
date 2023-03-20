@@ -2,7 +2,6 @@
 
 <script lang="ts">
 import Vue, { PropType } from 'vue'
-import { mapGetters } from 'vuex'
 import {
   PhoneOutgoingIcon,
   PhoneIncomingIcon,
@@ -15,7 +14,8 @@ import {
   WebRTCActiveCall,
   WebRTCIncomingCall,
 } from '~/libraries/Iridium/webrtc/types'
-import { formatDuration } from '~/utilities/duration'
+import { getTimestamp } from '~/utilities/timestamp'
+import { webrtcHooks } from '~/components/compositions/webrtc'
 
 export default Vue.extend({
   components: {
@@ -23,6 +23,7 @@ export default Vue.extend({
     PhoneIncomingIcon,
     PhoneOffIcon,
   },
+
   props: {
     message: {
       type: Object as PropType<ConversationMessage>,
@@ -33,16 +34,21 @@ export default Vue.extend({
       default: () => false,
     },
   },
+  setup() {
+    const { useDuration } = webrtcHooks()
+
+    const callDuration = useDuration()
+
+    return {
+      callDuration,
+    }
+  },
   data() {
     return {
       webrtc: iridium.webRTC.state,
-      callDuration: '',
     }
   },
   computed: {
-    ...mapGetters({
-      getTimestamp: 'settings/getTimestamp',
-    }),
     isOutgoingCall(): boolean {
       return this.message.from === iridium.id
     },
@@ -50,10 +56,7 @@ export default Vue.extend({
       return (iridium.users.getUser(this.message.from) as User).name
     },
     startedAtTimestamp(): string {
-      return this.getTimestamp({ time: this.message.at })
-    },
-    currentDuration(): string {
-      return formatDuration(Date.now() - this.message.at)
+      return getTimestamp(this.message.at)
     },
     incomingCall(): WebRTCIncomingCall | null {
       return this.webrtc.incomingCall
@@ -63,16 +66,6 @@ export default Vue.extend({
         this.webrtc.activeCall?.callId === this.message.conversationId
         ? this.webrtc.activeCall
         : null
-    },
-  },
-  watch: {
-    webrtc: {
-      handler() {
-        this.callDuration = formatDuration(
-          (Date.now() - this.webrtc.callStartedAt) / 1000,
-        )
-      },
-      deep: true,
     },
   },
   methods: {

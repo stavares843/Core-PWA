@@ -26,6 +26,7 @@ import {
   MessageEditPayload,
   MessageReaction,
   MessageReactionPayload,
+  ConversationType,
 } from '~/libraries/Iridium/chat/types'
 import { Friend } from '~/libraries/Iridium/friends/types'
 import iridium from '~/libraries/Iridium/IridiumManager'
@@ -34,7 +35,11 @@ import { ChatFileUpload } from '~/store/chat/types'
 import { FILE_TYPE } from '~/libraries/Files/types/file'
 import isNSFW from '~/utilities/NSFW'
 import {
+  GroupConversationCreatedNotificationPayload,
+  MemberJoinNotificationPayload,
+  MessageNotificationPayload,
   NotificationBase,
+  NotificationPayloads,
   NotificationType,
 } from '~/libraries/Iridium/notifications/types'
 import { uploadFile } from '~/libraries/Iridium/utils'
@@ -42,7 +47,7 @@ import { truthy } from '~/utilities/typeGuard'
 
 export type ConversationPubsubEvent = IridiumMessage<
   IridiumDecodedPayload<{
-    message?: ConversationMessage
+    message?: ConversationMessage | MessageEdit
     cid?: string
     type: 'chat/message' | 'chat/reaction' | 'chat/edit'
     reaction?: MessageReaction
@@ -100,19 +105,7 @@ export default class ChatManager extends Emitter<ConversationMessage> {
 
     await Promise.all(
       conversations.map(async (conversation) => {
-        const topic = `/chat/conversations/${conversation.id}`
-        logger.info(
-          `${this.logPrefix}/start`,
-          `requesting sync subscription to ${topic}`,
-        )
-        // ask the sync node to subscribe to this topic
-        await iridium.connector?.subscribe<ConversationPubsubEvent>(topic, {
-          sync: {
-            offline: true,
-          },
-          handler: this.onConversationMessage.bind(this, conversation.id),
-        })
-        this.ephemeral.subscriptions.push(conversation.id)
+        await this.listenToConversation(conversation.id)
       }),
     )
 
@@ -122,6 +115,22 @@ export default class ChatManager extends Emitter<ConversationMessage> {
   }
 
   async stop() {}
+
+  private async listenToConversation(conversationId: string) {
+    const topic = `/chat/conversations/${conversationId}`
+    logger.info(
+      `${this.logPrefix}/start`,
+      `requesting sync subscription to ${topic}`,
+    )
+    // ask the sync node to subscribe to this topic
+    await iridium.connector?.subscribe<ConversationPubsubEvent>(topic, {
+      sync: {
+        offline: true,
+      },
+      handler: this.onConversationMessage.bind(this, conversationId),
+    })
+    this.ephemeral.subscriptions.push(conversationId)
+  }
 
   private async onConversationAnnounce(
     message: IridiumPubsubMessage<
@@ -141,13 +150,31 @@ export default class ChatManager extends Emitter<ConversationMessage> {
         .map((did) => iridium.users.searchPeer(did, { andSave: true })),
     )
 
-    if (payload.type === 'create') {
+    if (payload.type === 'create' || payload.type === 'added_to_group') {
       await this.createConversation({
         id: payload.id,
         type: 'group',
         name: payload.name,
         participants,
       })
+
+      const notificationType =
+        payload.type === 'create'
+          ? NotificationType.GROUP_CONVERSATION_CREATED
+          : NotificationType.ADDED_TO_GROUP
+
+      // send browser notification to notify user of new group conversation
+      const notification: NotificationBase<GroupConversationCreatedNotificationPayload> =
+        {
+          type: notificationType,
+          senderId: message.from,
+          at: Date.now().valueOf(),
+          seen: false,
+          payload: {
+            conversationId: payload.id,
+          },
+        }
+      iridium.notifications.emit('notification/create', notification)
     } else if (payload.type === 'add_member') {
       await this.appendParticipantsToConversation(payload.id, participants)
     } else if (payload.type === 'remove_member') {
@@ -244,17 +271,15 @@ export default class ChatManager extends Emitter<ConversationMessage> {
     }
     const fromDID = didUtils.didString(from)
     const conversation = this.getConversation(conversationId)
-    if (
-      !conversation ||
-      !conversation.participants.includes(didUtils.didString(from))
-    ) {
+
+    if (!conversation) {
       throw new Error(ChatError.CONVERSATION_NOT_FOUND)
     }
     const { type, cid } = payload.body
     if (type === 'chat/message') {
       let message: ConversationMessage
       if (payload.body.message) {
-        message = payload.body.message
+        message = payload.body.message as ConversationMessage
       } else {
         throw new Error('no message in payload')
       }
@@ -293,7 +318,7 @@ export default class ChatManager extends Emitter<ConversationMessage> {
         (!document.hasFocus() || !this.isActive(conversationId)) &&
         !receivedWhileOffline
       ) {
-        this.sendNotification(message, conversation, fromDID)
+        this.sendNotification(message, conversation)
       }
     } else if (type === 'chat/reaction') {
       const reaction = payload.body.reaction
@@ -319,7 +344,7 @@ export default class ChatManager extends Emitter<ConversationMessage> {
         message,
       )
     } else if (type === 'chat/edit') {
-      if (!payload.body.message) {
+      if (!payload?.body?.message) {
         console.error('no message in payload')
         return
       }
@@ -345,40 +370,87 @@ export default class ChatManager extends Emitter<ConversationMessage> {
     return this.ephemeral.activeConversationId === conversationId
   }
 
+  // TODO: refactor and remove the need for this
+  private getNotificationType(
+    message: ConversationMessage,
+    conversationType: ConversationType,
+  ): NotificationType {
+    switch (message.type) {
+      case 'member_join': {
+        if (message.members?.includes(iridium.id)) {
+          return NotificationType.ADDED_TO_GROUP
+        }
+        return NotificationType.MEMBER_JOIN
+      }
+      case 'member_leave': {
+        return NotificationType.MEMBER_LEAVE
+      }
+      case 'call': {
+        return NotificationType.CALL_INCOMING
+      }
+    }
+    switch (conversationType) {
+      case 'group':
+        return NotificationType.GROUP_MESSAGE
+      case 'direct':
+        return NotificationType.DIRECT_MESSAGE
+    }
+  }
+
+  getNotificationPayload = (
+    conversation: Conversation,
+    message: ConversationMessage,
+  ): NotificationPayloads | undefined => {
+    const notificationType = this.getNotificationType(
+      message,
+      conversation.type,
+    )
+
+    const notificationPayload: NotificationPayloads = {
+      messageId: message.id,
+      conversationId: conversation.id,
+    }
+
+    if (message.members) {
+      return {
+        ...notificationPayload,
+        addedMemberIds: message.members,
+      }
+    }
+
+    return notificationPayload
+  }
+
   private sendNotification(
     message: ConversationMessage,
     conversation: Conversation,
-    fromDID: string,
   ) {
-    const sender = iridium.users.getUser(message?.from)
     const isGroup = conversation.type === 'group'
 
+    const notificationType = this.getNotificationType(
+      message,
+      conversation.type,
+    )
+
+    if (!notificationType) {
+      return
+    }
+
+    const notificationPayload = this.getNotificationPayload(
+      conversation,
+      message,
+    )
+
     iridium.notifications.emit('notification/create', {
-      type: isGroup
-        ? NotificationType.GROUP_MESSAGE
-        : NotificationType.DIRECT_MESSAGE,
-      senderId: sender?.did,
-      messageId: message.id,
-      conversationId: conversation.id,
-      image: fromDID,
-    } as NotificationBase)
+      type: notificationType,
+      senderId: message.from,
+      image: message.from,
+      payload: notificationPayload,
+    } as NotificationBase<MessageNotificationPayload | MemberJoinNotificationPayload>)
   }
 
   hasConversation(id: string) {
     return Object.keys(this.state.conversations).includes(id)
-  }
-
-  lastMessageTimestamp(conversation: Conversation): number {
-    const messages = Object.values(
-      this.state.conversations[conversation.id].message,
-    ).sort((a, b) => a.at - b.at)
-    return messages[messages.length - 1]?.at ?? (conversation.createdAt || 0)
-  }
-
-  getSortedConversations(): Conversation[] {
-    return Object.values(this.state.conversations).sort(
-      (a, b) => this.lastMessageTimestamp(b) - this.lastMessageTimestamp(a),
-    )
   }
 
   async hasDirectConversation(did: string) {
@@ -443,12 +515,7 @@ export default class ChatManager extends Emitter<ConversationMessage> {
     await this.set(`/conversations/${id}`, conversation)
     this.emit(`conversations/${id}`, conversation)
 
-    // ask the sync node to subscribe to this topic
-    await iridium.connector?.subscribe(`/chat/conversations/${id}`, {
-      sync: { offline: true },
-      handler: this.onConversationMessage.bind(this, id),
-    })
-    this.ephemeral.subscriptions.push(id)
+    this.listenToConversation(id)
     iridium.sendSyncFetch()
 
     return id
@@ -530,10 +597,10 @@ export default class ChatManager extends Emitter<ConversationMessage> {
     // locally append the new members to our state
     this.appendParticipantsToConversation(id, newMembers)
 
-    // notify the new membes of the conversation
+    // notify the new members of the conversation
     event = {
       id,
-      type: 'create',
+      type: 'added_to_group',
       name: conversation.name,
       participants: conversation.participants,
     }
@@ -544,7 +611,6 @@ export default class ChatManager extends Emitter<ConversationMessage> {
       },
     })
 
-    // send a message in the conversation
     await this.sendMessage({
       conversationId: id,
       type: 'member_join',
@@ -645,18 +711,19 @@ export default class ChatManager extends Emitter<ConversationMessage> {
     }
   }
 
-  getConversation(id: Conversation['id']): Conversation | undefined {
-    return this.state.conversations[id]
+  getConversation(id: Conversation['id']): Conversation {
+    const conversation = this.state.conversations[id]
+    if (!conversation) {
+      throw new Error(ChatError.CONVERSATION_NOT_FOUND)
+    }
+    return conversation
   }
 
   getConversationMessage(
     conversationId: string,
     messageId: string,
   ): ConversationMessage {
-    const conversation = this.state.conversations[conversationId]
-    if (!conversation) {
-      throw new Error(ChatError.CONVERSATION_NOT_FOUND)
-    }
+    const conversation = this.getConversation(conversationId)
     const message = conversation.message[messageId]
     if (!message) {
       throw new Error(ChatError.MESSAGE_NOT_FOUND)
@@ -917,7 +984,8 @@ export default class ChatManager extends Emitter<ConversationMessage> {
     const index = conversationMessages?.findIndex(
       (msg) => msg.id === message.id,
     )
-    if (index >= 0) conversationMessages?.splice(index, 1)
+    if (index !== undefined && index >= 0)
+      conversationMessages?.splice(index, 1)
   }
 
   // Check if user is in other groups other than `exlude` groups.

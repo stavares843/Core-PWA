@@ -10,13 +10,13 @@ export function friendsHooks() {
     users: iridium.users,
   })
 
-  const friendsList: ComputedRef<User[]> = computed(() => {
+  const friends: ComputedRef<User[]> = computed(() => {
+    const collator = new Intl.Collator()
+
     return managers.friends.state.friends
       .map((did) => managers.users.state[did])
       .filter(truthy)
-      .sort((a, b) =>
-        a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
-      )
+      .sort((a, b) => collator.compare(a.name, b.name))
   })
 
   const requests: ComputedRef<FriendRequest[]> = computed(() => {
@@ -36,7 +36,7 @@ export function friendsHooks() {
   })
 
   return {
-    friendsList,
+    friends,
     requests,
     incomingRequests,
     outgoingRequests,

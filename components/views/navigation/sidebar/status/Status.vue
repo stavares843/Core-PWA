@@ -22,11 +22,7 @@ export default Vue.extend({
   }),
   methods: {
     copyId() {
-      if (!iridium.connector) return
-      const shortID = this.profile
-        ? `${this.profile.name}#${iridium.id.substring(iridium.id.length - 6)}`
-        : `${iridium.id}`
-      this.copyText(shortID)
+      this.copyText(iridium.shortId)
     },
     openQuickProfile() {
       const status = this.$refs.status as HTMLElement
@@ -37,7 +33,7 @@ export default Vue.extend({
       this.$store.commit('ui/setQuickProfile', {
         user: this.profile,
         position: { x: x - horizOffset, y: y - vertOffset },
-        showStatusChange: true,
+        isSidebarProfile: true,
       })
     },
   },

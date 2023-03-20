@@ -11,7 +11,7 @@ import Vue, {
   onMounted,
   onBeforeUnmount,
 } from 'vue'
-import VueMarkdown from 'vue-markdown'
+import { useNuxtApp } from '@nuxt/bridge/dist/runtime/app'
 import { toHTML } from '~/libraries/ui/Markdown'
 import { ContextMenuItem } from '~/store/ui/types'
 import iridium from '~/libraries/Iridium/IridiumManager'
@@ -23,9 +23,6 @@ import { $dayjs } from '~/plugins/local/dayjs'
 import { getDate, getTimestamp } from '~/utilities/timestamp'
 
 export default Vue.extend({
-  components: {
-    VueMarkdown,
-  },
   props: {
     conversationId: {
       type: String as PropType<Conversation['id']>,
@@ -33,7 +30,6 @@ export default Vue.extend({
     },
   },
   setup(props) {
-    // @ts-ignore
     const $nuxt = useNuxtApp()
     const {
       conversation,
@@ -52,10 +48,6 @@ export default Vue.extend({
       return numUnreadMessages.value >= 100
         ? '99+'
         : numUnreadMessages.value.toString()
-    })
-
-    const isSelected: ComputedRef<boolean> = computed(() => {
-      return props.conversationId === $nuxt.$route.params.id
     })
 
     const subtitle: ComputedRef<string> = computed(() => {
@@ -166,25 +158,29 @@ export default Vue.extend({
      * "2d" 2 days before
      * "MM/DD/YYYY" > 2 days before
      */
-    function setTimestamp() {
-      const lastMsg = sortedMessages.value.at(-1)?.at
-      if (!lastMsg) {
+    function setTimestamp(): string | undefined {
+      const lastMsgAt =
+        sortedMessages.value.at(-1)?.at || conversation.value?.createdAt
+
+      if (!lastMsgAt) {
         return
       }
+
       clearTimeout(timeoutId.value)
-      if ($dayjs().diff(lastMsg, 'second') < 30) {
+
+      if ($dayjs().diff(lastMsgAt, 'second') < 30) {
         timeoutId.value = setTimeout(setTimestamp, 30000)
         timestamp.value = $nuxt.$i18n.t('time.now')
         return
       }
-      if ($dayjs().isSame(lastMsg, 'day')) {
-        timestamp.value = getTimestamp(lastMsg)
-      } else if ($dayjs().diff(lastMsg, 'day') <= 1) {
+      if ($dayjs().isSame(lastMsgAt, 'day')) {
+        timestamp.value = getTimestamp(lastMsgAt)
+      } else if ($dayjs().diff(lastMsgAt, 'day') <= 1) {
         timestamp.value = $nuxt.$i18n.t('time.yesterday')
-      } else if ($dayjs().diff(lastMsg, 'day') <= 2) {
+      } else if ($dayjs().diff(lastMsgAt, 'day') <= 2) {
         timestamp.value = '2 d'
       } else {
-        timestamp.value = getDate(lastMsg)
+        timestamp.value = getDate(lastMsgAt)
       }
       const midnight = $dayjs().add(1, 'day').startOf('day').valueOf()
       // update timestamp at midnight tonight
@@ -200,7 +196,6 @@ export default Vue.extend({
     return {
       contextMenuValues,
       isLoading,
-      isSelected,
       numUnreadMessages,
       otherParticipants,
       sortedMessages,
@@ -212,26 +207,6 @@ export default Vue.extend({
   computed: {
     conversation(): Conversation {
       return iridium.chat.state.conversations[this.conversationId]
-    },
-  },
-  methods: {
-    /**
-     * @method openConversation
-     * @description Navigates to user or group conversation
-     */
-    async openConversation() {
-      if (!this.conversation?.id) {
-        return
-      }
-      if (this.$device.isMobile) {
-        if (this.conversation.id === this.$route.params.id) {
-          this.$emit('slideNext')
-          return
-        }
-        this.$router.push({ params: { id: this.conversation.id } })
-        return
-      }
-      this.$router.push(`/chat/${this.conversation.id}`)
     },
   },
 })

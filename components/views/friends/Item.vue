@@ -5,12 +5,12 @@
     data-cy="friend-page-list"
     class="friend-wrapper"
   >
-    <!-- <button
+    <button
       class="friend"
       :disabled="loading"
+      data-cy="friend"
       @click="showQuickProfile($event, user)"
-    > -->
-    <div class="friend" data-cy="friend">
+    >
       <UiUserState :user="user" />
       <div class="text-container">
         <div data-cy="friend-name" class="ellipsis">{{ user.name }}</div>
@@ -19,28 +19,36 @@
       <div class="button-container">
         <InteractablesButton
           v-if="cancelButton"
-          v-tooltip.top="cancelButton.tooltip"
+          v-tooltip.top="cancelButton.label"
           data-cy="friend-cancel-button"
           :disabled="loading"
           color="dark"
           size="sm"
-          @click="cancelButton.func"
+          @click.stop="cancelButton?.func()"
         >
-          <component :is="cancelButton.icon" size="16" />
+          <component
+            :is="cancelButton.icon"
+            size="16"
+            :alt="cancelButton.label"
+          />
         </InteractablesButton>
         <InteractablesButton
           v-if="confirmButton"
-          v-tooltip.top="confirmButton.tooltip"
+          v-tooltip.top="confirmButton.label"
           data-cy="friend-confirm-button"
           :loading="loading"
           color="dark"
           size="sm"
-          @click="confirmButton.func"
+          @click.stop="confirmButton?.func()"
         >
-          <component :is="confirmButton.icon" size="16" />
+          <component
+            :is="confirmButton.icon"
+            size="16"
+            :alt="confirmButton.label"
+          />
         </InteractablesButton>
       </div>
-    </div>
+    </button>
   </component>
 </template>
 
@@ -60,9 +68,9 @@ import { ContextMenuItem } from '~/store/ui/types'
 export type UserType = 'friend' | 'stranger' | 'incoming' | 'outgoing'
 
 type ButtonAttributes = {
+  label: TranslateResult
   icon: any
   func: () => void
-  tooltip: TranslateResult
 }
 
 export default Vue.extend({
@@ -102,25 +110,25 @@ export default Vue.extend({
         [
           'friend',
           {
+            label: this.$t('friends.message'),
             icon: MessageSquareIcon,
             func: this.openChat,
-            tooltip: this.$t('friends.message'),
           },
         ],
         [
           'incoming',
           {
+            label: this.$t('friends.accept'),
             icon: CheckIcon,
             func: this.acceptFriendRequest,
-            tooltip: this.$t('friends.accept'),
           },
         ],
         [
           'stranger',
           {
+            label: this.$t('friends.send'),
             icon: UserPlusIcon,
             func: this.createFriendRequest,
-            tooltip: this.$t('friends.send'),
           },
         ],
       ])
@@ -131,17 +139,17 @@ export default Vue.extend({
         [
           'incoming',
           {
+            label: this.$t('friends.decline'),
             icon: XIcon,
             func: this.removeRequest,
-            tooltip: this.$t('friends.decline'),
           },
         ],
         [
           'outgoing',
           {
+            label: this.$t('friends.cancel_friend_request'),
             icon: XIcon,
             func: this.removeRequest,
-            tooltip: this.$t('friends.cancel_friend_request'),
           },
         ],
       ])
@@ -192,20 +200,28 @@ export default Vue.extend({
 <style scoped lang="less">
 .friend-wrapper {
   display: flex;
+
+  &:hover {
+    .background-semitransparent-light();
+  }
+
   .friend {
     display: flex;
     align-items: center;
     gap: 12px;
     user-select: none;
     flex-grow: 1;
-
+    min-width: 0;
     padding: 8px 16px;
+    outline-offset: -2px;
+
     &:hover {
       .background-semitransparent-light();
     }
 
     @media (max-width: @mobile-breakpoint) {
-      padding: 12px 0;
+      padding: 12px 16px;
+
       &:hover {
         background: none;
       }

@@ -70,15 +70,7 @@ export default Vue.extend({
         at: Date.now(),
         attachments: [],
       })
-
-      this.$store.commit('ui/updateRecentGlyphs', {
-        pack: this.pack,
-        url: this.src,
-      })
-      this.$store.commit('ui/toggleEnhancers', {
-        show: false,
-        floating: this.$device.isMobile,
-      })
+      this.$store.commit('chat/setEnhancersRoute', '')
     },
     setLoaded() {
       this.isLoaded = true
